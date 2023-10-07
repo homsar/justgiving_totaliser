@@ -7,7 +7,7 @@ justgiving_totaliser
         :target: https://travis-ci.org/homsar/justgiving_totaliser
 
 
-Totaliser for JustGiving pages
+Totaliser for JustGiving pages. Incredibly fragile! No idea how it will behave if your locale isn't English, for example.
 
 
 Features
