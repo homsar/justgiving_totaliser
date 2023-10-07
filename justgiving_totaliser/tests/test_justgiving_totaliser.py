@@ -17,7 +17,7 @@ def window(qtbot):
 
 def test_window_title(window):
     """Check that the window title shows as declared."""
-    assert window.windowTitle() == 'JustGivingTotaliser'
+    assert window.windowTitle() == "JustGivingTotaliser"
 
 
 def test_window_geometry(window):

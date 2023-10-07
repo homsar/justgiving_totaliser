@@ -4,10 +4,21 @@ import pkg_resources
 
 from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5.QtGui import QIcon, QPainter, QBrush, QFont, QPen
-from PyQt5.QtWidgets import (QAction, QApplication, QDesktopWidget, QDialog, QInputDialog,
-                             QHBoxLayout, QLabel, QMainWindow, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QAction,
+    QApplication,
+    QDesktopWidget,
+    QDialog,
+    QInputDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .scrape import get_data
+
 
 class JustGivingTotaliser(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
@@ -23,9 +34,10 @@ class JustGivingTotaliser(QMainWindow):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
         self.resize(1024, 150)
-        self.setWindowTitle('JustGivingTotaliser')
-        window_icon = pkg_resources.resource_filename('justgiving_totaliser.images',
-                                                      'ic_insert_drive_file_black_48dp_1x.png')
+        self.setWindowTitle("JustGivingTotaliser")
+        window_icon = pkg_resources.resource_filename(
+            "justgiving_totaliser.images", "ic_insert_drive_file_black_48dp_1x.png"
+        )
         self.setWindowIcon(QIcon(window_icon))
 
         self.widget = QWidget()
@@ -42,26 +54,28 @@ class JustGivingTotaliser(QMainWindow):
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
-        self.file_sub_menu = self.menu_bar.addMenu('Options')
+        self.file_sub_menu = self.menu_bar.addMenu("Options")
 
-        self.set_url_action = QAction('Set URL', self)
-        self.set_url_action.setStatusTip('Pick the JustGiving page to scrape.')
-        self.set_url_action.setShortcut('CTRL+U')
+        self.set_url_action = QAction("Set URL", self)
+        self.set_url_action.setStatusTip("Pick the JustGiving page to scrape.")
+        self.set_url_action.setShortcut("CTRL+U")
         self.set_url_action.triggered.connect(self.set_url)
 
-        self.pause_action = QAction('Pause', self)
-        self.pause_action.setStatusTip('Pause/resume scraping')
-        self.pause_action.setShortcut('CTRL+P')
+        self.pause_action = QAction("Pause", self)
+        self.pause_action.setStatusTip("Pause/resume scraping")
+        self.pause_action.setShortcut("CTRL+P")
         self.pause_action.triggered.connect(self.pause)
 
         self.refresh_time_action = QAction("Set refresh time", self)
-        self.refresh_time_action.setStatusTip("Set the amount of time to wait between updates.")
+        self.refresh_time_action.setStatusTip(
+            "Set the amount of time to wait between updates."
+        )
         self.refresh_time_action.setShortcut("CTRL+U")
         self.refresh_time_action.triggered.connect(self.set_refresh_time)
 
-        self.exit_action = QAction('Exit Application', self)
-        self.exit_action.setStatusTip('Exit the application.')
-        self.exit_action.setShortcut('CTRL+Q')
+        self.exit_action = QAction("Exit Application", self)
+        self.exit_action.setStatusTip("Exit the application.")
+        self.exit_action.setShortcut("CTRL+Q")
         self.exit_action.triggered.connect(lambda: QApplication.quit())
 
         self.file_sub_menu.addAction(self.set_url_action)
@@ -71,18 +85,18 @@ class JustGivingTotaliser(QMainWindow):
 
     def help_menu(self):
         """Create a help submenu with an About item tha opens an about dialog."""
-        self.help_sub_menu = self.menu_bar.addMenu('Help')
+        self.help_sub_menu = self.menu_bar.addMenu("Help")
 
-        self.about_action = QAction('About', self)
-        self.about_action.setStatusTip('About the application.')
-        self.about_action.setShortcut('CTRL+H')
+        self.about_action = QAction("About", self)
+        self.about_action.setStatusTip("About the application.")
+        self.about_action.setShortcut("CTRL+H")
         self.about_action.triggered.connect(lambda: self.about_dialog.exec_())
 
         self.help_sub_menu.addAction(self.about_action)
 
     def set_url(self):
         url, accept = QInputDialog.getText(
-             self, 'Enter URL', 'Enter the JustGiving URL to scrape:'
+            self, "Enter URL", "Enter the JustGiving URL to scrape:"
         )
 
         if accept:
@@ -91,7 +105,9 @@ class JustGivingTotaliser(QMainWindow):
             self.update_data()
 
     def set_refresh_time(self):
-        refresh_time, accept = QInputDialog.getDouble(self, "Enter time", "Enter the time to wait between refreshes, in seconds:")
+        refresh_time, accept = QInputDialog.getDouble(
+            self, "Enter time", "Enter the time to wait between refreshes, in seconds:"
+        )
 
         if accept:
             self.timer_interval = refresh_time * 1000
@@ -129,19 +145,24 @@ class JustGivingTotaliser(QMainWindow):
         if self.raised and self.target:
             painter.setPen(Qt.NoPen)
             painter.setBrush(QBrush(Qt.green, Qt.SolidPattern))
-            painter.drawRect(margin, margin, int((self.raised / self.target) * box_width), box_height)
+            painter.drawRect(
+                margin, margin, int((self.raised / self.target) * box_width), box_height
+            )
 
             painter.setPen(Qt.darkGreen)
             painter.setBrush(QBrush(Qt.darkGreen, Qt.SolidPattern))
             painter.setFont(QFont("Arial", 30))
-            painter.drawText(QRect(margin, margin, box_width, box_height), Qt.AlignCenter, f"{self.currency}{self.raised} / {self.currency}{self.target}")
+            painter.drawText(
+                QRect(margin, margin, box_width, box_height),
+                Qt.AlignCenter,
+                f"{self.currency}{self.raised} / {self.currency}{self.target}",
+            )
 
         # Draw outer rectangle
         painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(margin, margin, box_width, box_height)
 
-        
 
 class AboutDialog(QDialog):
     """Create the necessary elements to show helpful text in a dialog."""
@@ -150,19 +171,20 @@ class AboutDialog(QDialog):
         """Display a dialog that shows application information."""
         super(AboutDialog, self).__init__(parent)
 
-        self.setWindowTitle('About')
-        help_icon = pkg_resources.resource_filename('justgiving_totaliser.images',
-                                                    'ic_help_black_48dp_1x.png')
+        self.setWindowTitle("About")
+        help_icon = pkg_resources.resource_filename(
+            "justgiving_totaliser.images", "ic_help_black_48dp_1x.png"
+        )
         self.setWindowIcon(QIcon(help_icon))
         self.resize(300, 200)
 
-        author = QLabel('Tachibana Kanade')
+        author = QLabel("Tachibana Kanade")
         author.setAlignment(Qt.AlignCenter)
 
-        icons = QLabel('Material design icons created by Google')
+        icons = QLabel("Material design icons created by Google")
         icons.setAlignment(Qt.AlignCenter)
 
-        github = QLabel('GitHub: homsar')
+        github = QLabel("GitHub: homsar")
         github.setAlignment(Qt.AlignCenter)
 
         self.layout = QVBoxLayout()
