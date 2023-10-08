@@ -1,7 +1,9 @@
 from setuptools import setup
 
 requirements = [
-    # TODO: put your package requirements here
+    "beautifulsoup4==4.12.2",
+    "PyQt5==5.15.9",
+    "requests",
 ]
 
 setup(
