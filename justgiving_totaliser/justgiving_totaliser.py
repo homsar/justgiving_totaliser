@@ -71,15 +71,19 @@ class LatestDonor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.layout = QVBoxLayout()
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.name = QLabel("")
         self.name.setAlignment(Qt.AlignCenter)
         self.name.setFont(QFont(DEFAULT_FONT, 36))
         self.layout.addWidget(self.name)
 
+        message_font = QFont(DEFAULT_FONT, 18)
+        message_font.setItalic(True)
         self.message = QLabel("")
         self.message.setAlignment(Qt.AlignCenter)
-        self.message.setFont(QFont(DEFAULT_FONT, 18))
+        self.message.setFont(message_font)
         self.layout.addWidget(self.message)
 
         self.setLayout(self.layout)
@@ -129,10 +133,13 @@ class SingleDonor(QWidget):
 class DonorList(QWidget):
     _donors = None
 
-    def __init__(self, num_donors=5, parent=None):
+    def __init__(self, num_donors=4, parent=None):
         super().__init__(parent=parent)
 
         self.layout = QVBoxLayout()
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(10, 0, 10, 0)
+
         self.donor_widgets = []
         for _ in range(num_donors):
             donor_widget = SingleDonor()
@@ -164,7 +171,7 @@ class JustGivingTotaliser(QMainWindow):
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
-        self.resize(1024, 150)
+        self.resize(512, 150)
         self.setWindowTitle("JustGivingTotaliser")
         window_icon = pkg_resources.resource_filename(
             "justgiving_totaliser.images", "ic_insert_drive_file_black_48dp_1x.png"
@@ -179,6 +186,9 @@ class JustGivingTotaliser(QMainWindow):
         self.donor_list = DonorList()
 
         self.layout = QVBoxLayout()
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+
         self.layout.addWidget(self.progress_bar)
         self.layout.addWidget(self.latest_donor)
         self.layout.addWidget(self.donor_list)
@@ -274,7 +284,7 @@ class JustGivingTotaliser(QMainWindow):
         if self.url:
             self.progress_bar.totals, donors = get_data(self.url)
             self.latest_donor.donor = donors[0]
-            self.donor_list.donors = donors
+            self.donor_list.donors = donors[1:]
 
         self.update()
 

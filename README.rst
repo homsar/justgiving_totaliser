@@ -15,6 +15,8 @@ Features
 
 * Scrapes a JustGiving page
 * Displays a simple bar showing the progress towards the total
+* Also shows the most recent donor's comment, and subsequent recent donations
+  - This is capped at 5, because that's all JustGiving shows without pressing "show more", and untangling that would need me to switch to Selenium or understand GraphQL
 
 Credits
 ---------
