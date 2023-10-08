@@ -48,7 +48,7 @@ class ProgressBar(QWidget):
             painter.setPen(Qt.NoPen)
             painter.setBrush(QBrush(Qt.green, Qt.SolidPattern))
             painter.drawRect(
-                margin, margin, int((raised / target) * box_width), box_height
+                margin, margin, int(min(raised / target, 1) * box_width), box_height
             )
 
             painter.setPen(Qt.darkGreen)
