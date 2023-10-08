@@ -1,8 +1,9 @@
+from itertools import zip_longest
 import sys
 
 import pkg_resources
 
-from PyQt5.QtCore import Qt, QRect, QSettings, QTimer
+from PyQt5.QtCore import Qt, QRect, QSettings, QSize, QTimer
 from PyQt5.QtGui import QIcon, QPainter, QBrush, QFont, QPen
 from PyQt5.QtWidgets import (
     QAction,
@@ -17,18 +18,148 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from .scrape import get_data
+from .scrape import get_data, NULL_DONOR
+
+DEFAULT_FONT = "Arial"
+
+
+class ProgressBar(QWidget):
+    totals = None
+
+    def minimumSizeHint(self):
+        return QSize(0, 100)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+
+        margin = 20
+        box_height = int(self.height() - margin * 2)
+        box_width = int(self.width() - margin * 2)
+
+        # Draw background rectangle
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(Qt.white, Qt.SolidPattern))
+        painter.drawRect(margin, margin, box_width, box_height)
+
+        # Draw total bar
+        if self.totals:
+            raised, target, currency = self.totals
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QBrush(Qt.green, Qt.SolidPattern))
+            painter.drawRect(
+                margin, margin, int((raised / target) * box_width), box_height
+            )
+
+            painter.setPen(Qt.darkGreen)
+            painter.setFont(QFont(DEFAULT_FONT, 30))
+            painter.drawText(
+                QRect(margin, margin, box_width, box_height),
+                Qt.AlignCenter,
+                f"{currency}{raised} / {currency}{target}",
+            )
+
+        # Draw outer rectangle
+        painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(margin, margin, box_width, box_height)
+
+
+class LatestDonor(QWidget):
+    _donor = None
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.layout = QVBoxLayout()
+
+        self.name = QLabel("")
+        self.name.setAlignment(Qt.AlignCenter)
+        self.name.setFont(QFont(DEFAULT_FONT, 36))
+        self.layout.addWidget(self.name)
+
+        self.message = QLabel("")
+        self.message.setAlignment(Qt.AlignCenter)
+        self.message.setFont(QFont(DEFAULT_FONT, 18))
+        self.layout.addWidget(self.message)
+
+        self.setLayout(self.layout)
+
+    @property
+    def donor(self):
+        return self._donor
+
+    @donor.setter
+    def donor(self, donor):
+        self._donor = donor
+        self.name.setText(f"{donor.name}: {donor.amount}")
+        self.message.setText(donor.comment)
+
+
+class SingleDonor(QWidget):
+    _donor = None
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.layout = QHBoxLayout()
+        self.name = QLabel("")
+        self.name.setFont(QFont(DEFAULT_FONT, 24))
+        self.amount = QLabel("")
+        self.amount.setFont(QFont(DEFAULT_FONT, 24))
+        self.amount.setAlignment(Qt.AlignRight)
+
+        self.layout.addWidget(self.name)
+        self.layout.addWidget(self.amount)
+
+        self.setLayout(self.layout)
+
+    @property
+    def donor(self):
+        return self._donor
+
+    @donor.setter
+    def donor(self, donor):
+        self._donor = donor
+        self.name.setText(donor.name)
+        if donor.amount.split():
+            self.amount.setText(donor.amount.split()[0])
+        else:
+            self.amount.setText("")
+
+
+class DonorList(QWidget):
+    _donors = None
+
+    def __init__(self, num_donors=5, parent=None):
+        super().__init__(parent=parent)
+
+        self.layout = QVBoxLayout()
+        self.donor_widgets = []
+        for _ in range(num_donors):
+            donor_widget = SingleDonor()
+            self.donor_widgets.append(donor_widget)
+            self.layout.addWidget(donor_widget)
+
+        self.setLayout(self.layout)
+
+    @property
+    def donors(self):
+        return self._donors
+
+    @donors.setter
+    def donors(self, donors):
+        self._donors = donors
+        for donor, donor_widget in zip_longest(
+            donors[: len(self.donor_widgets)], self.donor_widgets, fillvalue=NULL_DONOR
+        ):
+            donor_widget.donor = donor
 
 
 class JustGivingTotaliser(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
 
     timer_interval = 60_000
-    url = None
 
-    raised = None
-    target = None
-    currency = None
+    donors = None
 
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
@@ -40,8 +171,18 @@ class JustGivingTotaliser(QMainWindow):
         )
         self.setWindowIcon(QIcon(window_icon))
 
-        self.widget = QWidget()
-        self.layout = QHBoxLayout(self.widget)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+
+        self.progress_bar = ProgressBar()
+        self.latest_donor = LatestDonor()
+        self.donor_list = DonorList()
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.progress_bar)
+        self.layout.addWidget(self.latest_donor)
+        self.layout.addWidget(self.donor_list)
+        self.central_widget.setLayout(self.layout)
 
         self.menu_bar = self.menuBar()
         self.about_dialog = AboutDialog()
@@ -49,9 +190,16 @@ class JustGivingTotaliser(QMainWindow):
         self.file_menu()
         self.help_menu()
 
+        self.setStyleSheet("color: #008000")
+
+        self.init_timer()
+        self.init_settings()
+
+    def init_timer(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
 
+    def init_settings(self):
         self.settings = QSettings("h0m54r", "justgiving_totaliser")
         self.url = self.settings.value("url", defaultValue=None)
         if self.url:
@@ -124,7 +272,9 @@ class JustGivingTotaliser(QMainWindow):
 
     def update_data(self):
         if self.url:
-            self.raised, self.target, self.currency = get_data(self.url)
+            self.progress_bar.totals, donors = get_data(self.url)
+            self.latest_donor.donor = donors[0]
+            self.donor_list.donors = donors
 
         self.update()
 
@@ -135,40 +285,6 @@ class JustGivingTotaliser(QMainWindow):
         else:
             self.timer.stop()
             self.pause_action.setText("Resume")
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-
-        margin = 20
-        box_height = int(self.height() - margin * 2)
-        box_width = int(self.width() - margin * 2)
-
-        # Draw background rectangle
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(Qt.white, Qt.SolidPattern))
-        painter.drawRect(margin, margin, box_width, box_height)
-
-        # Draw total bar
-        if self.raised and self.target:
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(QBrush(Qt.green, Qt.SolidPattern))
-            painter.drawRect(
-                margin, margin, int((self.raised / self.target) * box_width), box_height
-            )
-
-            painter.setPen(Qt.darkGreen)
-            painter.setBrush(QBrush(Qt.darkGreen, Qt.SolidPattern))
-            painter.setFont(QFont("Arial", 30))
-            painter.drawText(
-                QRect(margin, margin, box_width, box_height),
-                Qt.AlignCenter,
-                f"{self.currency}{self.raised} / {self.currency}{self.target}",
-            )
-
-        # Draw outer rectangle
-        painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
-        painter.setBrush(Qt.NoBrush)
-        painter.drawRect(margin, margin, box_width, box_height)
 
 
 class AboutDialog(QDialog):

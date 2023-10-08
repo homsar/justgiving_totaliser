@@ -1,19 +1,17 @@
+from collections import namedtuple
 from decimal import Decimal
 
 import requests
 from bs4 import BeautifulSoup
 
 
-def get_data(url):
-    """Given a JustGiving `url`, return the current total and target amounts, and the currency symbol."""
+Total = namedtuple("Total", ["raised", "target", "currency"])
+Donor = namedtuple("Donor", ["name", "comment", "amount"])
 
-    response = requests.get(url)
-    if not 200 <= response.status_code < 300:
-        raise RuntimeError(
-            f"Couldn't get data from the server; got a {response.status_code} error."
-        )
+NULL_DONOR = Donor("", "", "")
 
-    soup = BeautifulSoup(markup=response.text, features="html.parser")
+
+def get_totals(soup):
     relevant_block = soup.find(string="raised of").find_parents()
 
     raised_text = relevant_block[1].previousSibling.string
@@ -28,4 +26,33 @@ def get_data(url):
     raised = Decimal(raised_text[1:].replace(",", ""))
     target = Decimal(target_text[1:].replace(",", ""))
 
-    return raised, target, currency
+    return Total(raised, target, currency)
+
+
+def get_donors(soup):
+    donors = []
+    for relevant_block in soup.findAll(
+        "div", {"class": lambda L: L and L.startswith("SupporterDetails_content")}
+    ):
+        name = list(list(relevant_block.children)[0].children)[0].text
+        comment = list(relevant_block.children)[1].text
+        amount = list(relevant_block.children)[2].text
+        donors.append(Donor(name, comment, amount))
+
+    return donors
+
+
+def get_data(url):
+    """Given a JustGiving `url`, return the current total and target amounts, and the currency symbol."""
+
+    response = requests.get(url)
+    if not 200 <= response.status_code < 300:
+        raise RuntimeError(
+            f"Couldn't get data from the server; got a {response.status_code} error."
+        )
+
+    soup = BeautifulSoup(markup=response.text, features="html.parser")
+    totals = get_totals(soup)
+    donors = get_donors(soup)
+
+    return totals, donors
