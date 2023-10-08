@@ -164,8 +164,6 @@ class DonorList(QWidget):
 class JustGivingTotaliser(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
 
-    timer_interval = 60_000
-
     donors = None
 
     def __init__(self, parent=None):
@@ -212,6 +210,7 @@ class JustGivingTotaliser(QMainWindow):
     def init_settings(self):
         self.settings = QSettings("h0m54r", "justgiving_totaliser")
         self.url = self.settings.value("url", defaultValue=None)
+        self.timer_interval = self.settings.value("timer_interval", defaultValue=60_000)
         if self.url:
             self.pause(force_resume=True)
             self.update_data()
@@ -271,11 +270,15 @@ class JustGivingTotaliser(QMainWindow):
 
     def set_refresh_time(self):
         refresh_time, accept = QInputDialog.getDouble(
-            self, "Enter time", "Enter the time to wait between refreshes, in seconds:"
+            self,
+            "Enter time",
+            "Enter the time to wait between refreshes, in seconds:",
+            self.timer_interval / 1000,
         )
 
         if accept:
-            self.timer_interval = refresh_time * 1000
+            self.timer_interval = int(refresh_time * 1000)
+            self.settings.setValue("timer_interval", self.timer_interval)
             if self.timer.isActive():
                 self.timer.stop()
                 self.timer.start(self.timer_interval)
