@@ -2,7 +2,7 @@ import sys
 
 import pkg_resources
 
-from PyQt5.QtCore import Qt, QRect, QTimer
+from PyQt5.QtCore import Qt, QRect, QSettings, QTimer
 from PyQt5.QtGui import QIcon, QPainter, QBrush, QFont, QPen
 from PyQt5.QtWidgets import (
     QAction,
@@ -51,6 +51,12 @@ class JustGivingTotaliser(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
+
+        self.settings = QSettings("h0m54r", "justgiving_totaliser")
+        self.url = self.settings.value("url", defaultValue=None)
+        if self.url:
+            self.pause(force_resume=True)
+            self.update_data()
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -101,6 +107,7 @@ class JustGivingTotaliser(QMainWindow):
 
         if accept:
             self.url = url
+            self.settings.setValue("url", url)
             self.pause(force_resume=True)
             self.update_data()
 
