@@ -346,7 +346,7 @@ class JustGivingTotaliser(QMainWindow):
         if self.url:
             self.progress_bar.totals, donors = get_data(self.url)
             self.latest_donor.donor = donors[0]
-            self.donor_list.donors = donors[1:]
+            self.donor_list.donors = donors[:]
 
         self.update()
 
