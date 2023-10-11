@@ -268,8 +268,6 @@ class JustGivingTotaliser(QMainWindow):
             left = self.settings.value(f"{key}/left", None)
             top = self.settings.value(f"{key}/top", None)
 
-            print("Setting geometry to", width, height, left, top)
-
             widget.resize(width, height)
             if left and top:
                 widget.move(left, top)
