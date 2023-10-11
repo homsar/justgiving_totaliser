@@ -157,7 +157,7 @@ class DonorList(QWidget):
 
     closeEvent = closeEvent
 
-    def __init__(self, num_donors=4, parent=None):
+    def __init__(self, num_donors=5, parent=None):
         super().__init__(parent=parent)
 
         self.resize(200, 250)
