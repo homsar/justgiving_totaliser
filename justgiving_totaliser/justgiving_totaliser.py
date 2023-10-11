@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -23,8 +24,23 @@ from .scrape import get_data, NULL_DONOR
 DEFAULT_FONT = "Arial"
 
 
+def closeEvent(self, event):
+    self.settings.setValue(f"{self.key}/width", self.size().width())
+    self.settings.setValue(f"{self.key}/height", self.size().height())
+    self.settings.setValue(f"{self.key}/left", self.pos().x())
+    self.settings.setValue(f"{self.key}/top", self.pos().y())
+
+    event.accept()
+
+
 class ProgressBar(QWidget):
     totals = None
+
+    closeEvent = closeEvent
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.resize(512, 150)
 
     def minimumSizeHint(self):
         return QSize(0, 100)
@@ -68,8 +84,13 @@ class ProgressBar(QWidget):
 class LatestDonor(QWidget):
     _donor = None
 
+    closeEvent = closeEvent
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+
+        self.resize(250, 50)
+
         self.layout = QVBoxLayout()
         self.layout.setSpacing(0)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -104,6 +125,7 @@ class SingleDonor(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+
         self.layout = QHBoxLayout()
         self.name = QLabel("")
         self.name.setFont(QFont(DEFAULT_FONT, 24))
@@ -133,8 +155,12 @@ class SingleDonor(QWidget):
 class DonorList(QWidget):
     _donors = None
 
+    closeEvent = closeEvent
+
     def __init__(self, num_donors=4, parent=None):
         super().__init__(parent=parent)
+
+        self.resize(200, 250)
 
         self.layout = QVBoxLayout()
         self.layout.setSpacing(0)
@@ -161,6 +187,13 @@ class DonorList(QWidget):
             donor_widget.donor = donor
 
 
+class ShowButton(QPushButton):
+    def __init__(self, caption, parent, target):
+        super().__init__(caption, parent)
+        self.target = target
+        self.clicked.connect(self.target.show)
+
+
 class JustGivingTotaliser(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
 
@@ -169,7 +202,7 @@ class JustGivingTotaliser(QMainWindow):
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
-        self.resize(512, 150)
+
         self.setWindowTitle("JustGivingTotaliser")
         window_icon = pkg_resources.resource_filename(
             "justgiving_totaliser.images", "ic_insert_drive_file_black_48dp_1x.png"
@@ -184,12 +217,16 @@ class JustGivingTotaliser(QMainWindow):
         self.donor_list = DonorList()
 
         self.layout = QVBoxLayout()
-        self.layout.setSpacing(0)
-        self.layout.setContentsMargins(0, 0, 0, 0)
 
-        self.layout.addWidget(self.progress_bar)
-        self.layout.addWidget(self.latest_donor)
-        self.layout.addWidget(self.donor_list)
+        for widget, caption in [
+                (self.progress_bar, "Progress bar"),
+                (self.latest_donor, "Latest donor"),
+                (self.donor_list, "Donor list"),
+        ]:
+            button = ShowButton(caption, self, widget)
+            self.layout.addWidget(button)
+            widget.show()
+
         self.central_widget.setLayout(self.layout)
 
         self.menu_bar = self.menuBar()
@@ -197,8 +234,6 @@ class JustGivingTotaliser(QMainWindow):
 
         self.file_menu()
         self.help_menu()
-
-        self.setStyleSheet("color: #008000")
 
         self.init_timer()
         self.init_settings()
@@ -212,8 +247,32 @@ class JustGivingTotaliser(QMainWindow):
         self.url = self.settings.value("url", defaultValue=None)
         self.timer_interval = self.settings.value("timer_interval", defaultValue=60_000)
         if self.url:
-            self.pause(force_resume=True)
-            self.update_data()
+            try:
+                self.update_data()
+            except Exception:
+                self.url = None
+            else:
+                self.pause(force_resume=True)
+
+        for widget, key, width, height in [
+                (self.progress_bar, "bar", 500, 150),
+                (self.latest_donor, "latest", 500, 150),
+                (self.donor_list, "list", 250, 250),
+                (self, "mainWindow", 250, 250),
+        ]:
+            widget.settings = self.settings
+            widget.key = key
+
+            width = self.settings.value(f"{key}/width", width)
+            height = self.settings.value(f"{key}/height", height)
+            left = self.settings.value(f"{key}/left", None)
+            top = self.settings.value(f"{key}/top", None)
+
+            print("Setting geometry to", width, height, left, top)
+
+            widget.resize(width, height)
+            if left and top:
+                widget.move(left, top)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -298,6 +357,10 @@ class JustGivingTotaliser(QMainWindow):
         else:
             self.timer.stop()
             self.pause_action.setText("Resume")
+
+    def closeEvent(self, event):
+        QApplication.closeAllWindows()
+        event.accept()
 
 
 class AboutDialog(QDialog):
