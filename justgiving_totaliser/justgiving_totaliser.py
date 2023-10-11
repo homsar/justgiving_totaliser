@@ -1,13 +1,15 @@
+from functools import partial
 from itertools import zip_longest
 import sys
 
 import pkg_resources
 
 from PyQt5.QtCore import Qt, QRect, QSettings, QSize, QTimer
-from PyQt5.QtGui import QIcon, QPainter, QBrush, QFont, QPen
+from PyQt5.QtGui import QColor, QIcon, QPainter, QBrush, QFont, QPen
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
+    QColorDialog,
     QDesktopWidget,
     QDialog,
     QInputDialog,
@@ -36,11 +38,32 @@ def closeEvent(self, event):
 class ProgressBar(QWidget):
     totals = None
 
+    _bar_colour = Qt.green
+    _text_colour = Qt.darkGreen
+
     closeEvent = closeEvent
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.resize(512, 150)
+
+    @property
+    def bar_colour(self):
+        return self._bar_colour
+
+    @bar_colour.setter
+    def bar_colour(self, colour):
+        self._bar_colour = colour
+        self.update()
+
+    @property
+    def text_colour(self):
+        return self._text_colour
+
+    @text_colour.setter
+    def text_colour(self, colour):
+        self._text_colour = colour
+        self.update()
 
     def minimumSizeHint(self):
         return QSize(0, 100)
@@ -62,12 +85,12 @@ class ProgressBar(QWidget):
             raised, target, currency = self.totals
 
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QBrush(Qt.green, Qt.SolidPattern))
+            painter.setBrush(QBrush(self.bar_colour, Qt.SolidPattern))
             painter.drawRect(
                 margin, margin, int(min(raised / target, 1) * box_width), box_height
             )
 
-            painter.setPen(Qt.darkGreen)
+            painter.setPen(self.text_colour)
             painter.setFont(QFont(DEFAULT_FONT, 30))
             painter.drawText(
                 QRect(margin, margin, box_width, box_height),
@@ -119,6 +142,15 @@ class LatestDonor(QWidget):
         self.name.setText(f"{donor.name}: {donor.amount}")
         self.message.setText(donor.comment)
 
+    @property
+    def text_colour(self):
+        return self._text_colour
+
+    @text_colour.setter
+    def text_colour(self, colour):
+        self._text_colour = colour
+        self.setStyleSheet(f"color: {colour.name()}")
+
 
 class SingleDonor(QWidget):
     _donor = None
@@ -154,6 +186,7 @@ class SingleDonor(QWidget):
 
 class DonorList(QWidget):
     _donors = None
+    _text_colour = Qt.white
 
     closeEvent = closeEvent
 
@@ -185,6 +218,15 @@ class DonorList(QWidget):
             donors[: len(self.donor_widgets)], self.donor_widgets, fillvalue=NULL_DONOR
         ):
             donor_widget.donor = donor
+
+    @property
+    def text_colour(self):
+        return self._text_colour
+
+    @text_colour.setter
+    def text_colour(self, colour):
+        self._text_colour = colour
+        self.setStyleSheet(f"color: {colour.name()}")
 
 
 class ShowButton(QPushButton):
@@ -238,6 +280,8 @@ class JustGivingTotaliser(QMainWindow):
         self.init_timer()
         self.init_settings()
 
+        self.init_colours()
+
     def init_timer(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
@@ -290,7 +334,7 @@ class JustGivingTotaliser(QMainWindow):
         self.refresh_time_action.setStatusTip(
             "Set the amount of time to wait between updates."
         )
-        self.refresh_time_action.setShortcut("CTRL+U")
+        self.refresh_time_action.setShortcut("CTRL+R")
         self.refresh_time_action.triggered.connect(self.set_refresh_time)
 
         self.exit_action = QAction("Exit Application", self)
@@ -302,6 +346,29 @@ class JustGivingTotaliser(QMainWindow):
         self.file_sub_menu.addAction(self.pause_action)
         self.file_sub_menu.addAction(self.refresh_time_action)
         self.file_sub_menu.addAction(self.exit_action)
+
+    def init_colours(self):
+        self.colour_menu = self.menu_bar.addMenu("Colours")
+        self.colour_menu_items = []
+
+        for widget, attrname, text, default in [
+                (self.progress_bar, "bar_colour", "progress bar", QColor(Qt.green)),
+                (self.progress_bar, "text_colour", "progress bar text", QColor(Qt.darkGreen)),
+                (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
+                (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
+        ]:
+            def set_colour(colour, widget, attrname, text):
+                colour = QColorDialog.getColor(initial=getattr(widget, attrname), parent=self, title=f"Choose {text} colour")
+                if colour.isValid():
+                    setattr(widget, attrname, colour)
+                    self.settings.setValue(f"{widget.key}/{attrname}", colour)
+
+            action = QAction(f"Set {text} colour")
+            action.triggered.connect(partial(set_colour, widget=widget, attrname=attrname, text=text))
+            self.colour_menu.addAction(action)
+            self.colour_menu_items.append(action)
+
+            setattr(widget, attrname, QColor(self.settings.value(f"{widget.key}/{attrname}", default)))
 
     def help_menu(self):
         """Create a help submenu with an About item tha opens an about dialog."""
@@ -347,6 +414,7 @@ class JustGivingTotaliser(QMainWindow):
             self.donor_list.donors = donors[:]
 
         self.update()
+        self.progress_bar.update()
 
     def pause(self, force_resume=False):
         if not self.timer.isActive() or force_resume:
