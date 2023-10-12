@@ -428,14 +428,18 @@ class JustGivingTotaliser(QMainWindow):
         self.file_menu()
         self.help_menu()
 
-        self.init_timer()
+        self.init_timers()
         self.init_settings()
 
         self.init_colours()
 
-    def init_timer(self):
+    def init_timers(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
+
+        self.repaint_timer = QTimer()
+        self.repaint_timer.timeout.connect(self.repaint_all)
+        self.repaint_timer.start(60_000)
 
     def init_settings(self):
         self.settings = QSettings("h0m54r", "justgiving_totaliser")
@@ -658,6 +662,13 @@ class JustGivingTotaliser(QMainWindow):
 
         self.update()
         self.progress_bar.update()
+
+    def repaint_all(self):
+        self.update()
+        self.progress_bar.update()
+        self.latest_donor.update()
+        self.donor_list.update()
+        self.marquee.update()
 
     def pause(self, force_resume=False):
         if not self.timer.isActive() or force_resume:
