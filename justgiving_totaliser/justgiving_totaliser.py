@@ -6,7 +6,16 @@ import sys
 import pkg_resources
 
 from PyQt5.QtCore import Qt, QEvent, QRect, QSettings, QSize, QTimer, pyqtSlot
-from PyQt5.QtGui import QColor, QIcon, QPainter, QBrush, QFont, QPen, QTextDocument, QFontMetrics
+from PyQt5.QtGui import (
+    QColor,
+    QIcon,
+    QPainter,
+    QBrush,
+    QFont,
+    QPen,
+    QTextDocument,
+    QFontMetrics,
+)
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -38,7 +47,7 @@ class SaveSizeAndPositionOnClose:
 
 
 class Marquee(QWidget, SaveSizeAndPositionOnClose):
-    '''Marquee class courtesy of https://stackoverflow.com/questions/36297429/smooth-scrolling-text-in-qlabel'''
+    """Marquee class courtesy of https://stackoverflow.com/questions/36297429/smooth-scrolling-text-in-qlabel"""
 
     x = 0
 
@@ -96,7 +105,9 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose):
 
     def setText(self, value, reset=True):
         self.document = QTextDocument(self)
-        self.document.setDefaultStyleSheet(f"body {{ color: {self.text_colour.name()}; }}")
+        self.document.setDefaultStyleSheet(
+            f"body {{ color: {self.text_colour.name()}; }}"
+        )
         self.document.setDefaultFont(self.text_font)
         self.document.setHtml("<body>" + escape(value) + "</body>")
         # I multiplied by 1.06 because otherwise the text goes on 2 lines
@@ -360,10 +371,10 @@ class JustGivingTotaliser(QMainWindow):
         self.layout = QVBoxLayout()
 
         for widget, caption in [
-                (self.progress_bar, "Progress bar"),
-                (self.latest_donor, "Latest donor"),
-                (self.donor_list, "Donor list"),
-                (self.marquee, "Donor marquee"),
+            (self.progress_bar, "Progress bar"),
+            (self.latest_donor, "Latest donor"),
+            (self.donor_list, "Donor list"),
+            (self.marquee, "Donor marquee"),
         ]:
             button = ShowButton(caption, self, widget)
             self.layout.addWidget(button)
@@ -401,11 +412,11 @@ class JustGivingTotaliser(QMainWindow):
                 self.pause(force_resume=True)
 
         for widget, key, default_width, default_height in [
-                (self.progress_bar, "bar", 500, 150),
-                (self.latest_donor, "latest", 500, 150),
-                (self.donor_list, "list", 250, 250),
-                (self.marquee, "marquee", 500, 150),
-                (self, "mainWindow", 250, 250),
+            (self.progress_bar, "bar", 500, 150),
+            (self.latest_donor, "latest", 500, 150),
+            (self.donor_list, "list", 250, 250),
+            (self.marquee, "marquee", 500, 150),
+            (self, "mainWindow", 250, 250),
         ]:
             widget.settings = self.settings
             widget.key = key
@@ -465,38 +476,66 @@ class JustGivingTotaliser(QMainWindow):
         self.colour_menu_items = []
 
         for widget, attrname, text, default in [
-                (self.progress_bar, "bar_colour", "progress bar", QColor(Qt.green)),
-                (self.progress_bar, "text_colour", "progress bar text", QColor(Qt.darkGreen)),
-                (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
-                (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
-                (self.marquee, "text_colour", "marquee text", QColor(Qt.white)),
+            (self.progress_bar, "bar_colour", "progress bar", QColor(Qt.green)),
+            (
+                self.progress_bar,
+                "text_colour",
+                "progress bar text",
+                QColor(Qt.darkGreen),
+            ),
+            (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
+            (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
+            (self.marquee, "text_colour", "marquee text", QColor(Qt.white)),
         ]:
+
             def set_colour(colour, widget, attrname, text):
-                colour = QColorDialog.getColor(initial=getattr(widget, attrname), parent=self, title=f"Choose {text} colour")
+                colour = QColorDialog.getColor(
+                    initial=getattr(widget, attrname),
+                    parent=self,
+                    title=f"Choose {text} colour",
+                )
                 if colour.isValid():
                     setattr(widget, attrname, colour)
                     self.settings.setValue(f"{widget.key}/{attrname}", colour)
 
             action = QAction(f"Set {text} colour")
-            action.triggered.connect(partial(set_colour, widget=widget, attrname=attrname, text=text))
+            action.triggered.connect(
+                partial(set_colour, widget=widget, attrname=attrname, text=text)
+            )
             self.colour_menu.addAction(action)
             self.colour_menu_items.append(action)
 
-            setattr(widget, attrname, QColor(self.settings.value(f"{widget.key}/{attrname}", default)))
+            setattr(
+                widget,
+                attrname,
+                QColor(self.settings.value(f"{widget.key}/{attrname}", default)),
+            )
 
         background_colour_action = QAction("Set window background colour")
         background_colour_action.triggered.connect(self.set_background_colours)
-        self.set_background_colours(self.settings.value("background_colour", QColor(Qt.magenta)))
+        self.set_background_colours(
+            self.settings.value("background_colour", QColor(Qt.magenta))
+        )
         self.colour_menu.addAction(background_colour_action)
         self.colour_menu_items.append(background_colour_action)
 
     def set_background_colours(self, colour=None):
         if not colour:
-            colour = QColorDialog.getColor(initial=self.background_colour, parent=self, title="Choose window background colour")
+            colour = QColorDialog.getColor(
+                initial=self.background_colour,
+                parent=self,
+                title="Choose window background colour",
+            )
         if colour.isValid():
             self.background_colour = colour
             self.settings.setValue(f"background_colour", colour)
-            for window in self, self.progress_bar, self.latest_donor, self.donor_list, self.marquee:
+            for window in (
+                self,
+                self.progress_bar,
+                self.latest_donor,
+                self.donor_list,
+                self.marquee,
+            ):
                 window.setStyleSheet(f"background-color: {colour.name()}")
 
     def help_menu(self):
