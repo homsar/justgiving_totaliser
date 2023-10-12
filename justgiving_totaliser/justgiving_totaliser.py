@@ -262,6 +262,14 @@ class LatestDonor(QWidget, SaveSizeAndPositionOnClose):
         self.setStyleSheet(f"color: {colour.name()}")
 
 
+class ElidingLabel(QLabel):
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        metrics = QFontMetrics(self.font())
+        elided = metrics.elidedText(self.text(), Qt.ElideRight, self.width())
+        painter.drawText(self.rect(), self.alignment(), elided)
+
+
 class SingleDonor(QWidget):
     _donor = None
 
@@ -269,8 +277,9 @@ class SingleDonor(QWidget):
         super().__init__(parent=parent)
 
         self.layout = QHBoxLayout()
-        self.name = QLabel("")
+        self.name = ElidingLabel("")
         self.name.setFont(QFont(DEFAULT_FONT, 24))
+        self.name.setMinimumWidth(50)
         self.amount = QLabel("")
         self.amount.setFont(QFont(DEFAULT_FONT, 24))
         self.amount.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
