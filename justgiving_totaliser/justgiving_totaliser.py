@@ -273,7 +273,7 @@ class SingleDonor(QWidget):
         self.name.setFont(QFont(DEFAULT_FONT, 24))
         self.amount = QLabel("")
         self.amount.setFont(QFont(DEFAULT_FONT, 24))
-        self.amount.setAlignment(Qt.AlignRight)
+        self.amount.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
 
         self.layout.addWidget(self.name)
         self.layout.addWidget(self.amount)
