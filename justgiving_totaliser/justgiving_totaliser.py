@@ -480,6 +480,21 @@ class JustGivingTotaliser(QMainWindow):
 
             setattr(widget, attrname, QColor(self.settings.value(f"{widget.key}/{attrname}", default)))
 
+        background_colour_action = QAction("Set window background colour")
+        background_colour_action.triggered.connect(self.set_background_colours)
+        self.set_background_colours(self.settings.value("background_colour", QColor(Qt.magenta)))
+        self.colour_menu.addAction(background_colour_action)
+        self.colour_menu_items.append(background_colour_action)
+
+    def set_background_colours(self, colour=None):
+        if not colour:
+            colour = QColorDialog.getColor(initial=self.background_colour, parent=self, title="Choose window background colour")
+        if colour.isValid():
+            self.background_colour = colour
+            self.settings.setValue(f"background_colour", colour)
+            for window in self, self.progress_bar, self.latest_donor, self.donor_list, self.marquee:
+                window.setStyleSheet(f"background-color: {colour.name()}")
+
     def help_menu(self):
         """Create a help submenu with an About item tha opens an about dialog."""
         self.help_sub_menu = self.menu_bar.addMenu("Help")
