@@ -2,11 +2,6 @@
 justgiving_totaliser
 ===============================
 
-
-.. image:: https://img.shields.io/travis/homsar/justgiving_totaliser.svg
-        :target: https://travis-ci.org/homsar/justgiving_totaliser
-
-
 Totaliser for JustGiving pages. Incredibly fragile! No idea how it will behave if your locale isn't English, for example.
 
 
@@ -14,9 +9,17 @@ Features
 --------
 
 * Scrapes a JustGiving page
-* Displays a simple bar showing the progress towards the total
-* Also shows the most recent donor's comment, and subsequent recent donations
-  - This is capped at 5, because that's all JustGiving shows without pressing "show more", and untangling that would need me to switch to Selenium or understand GraphQL
+* Displays windows showing:
+  - a simple bar showing the progress towards the total
+  - the most recent donor's name, donation amount and comment
+  - recent donors' names and donation amounts in a list
+  - recent donors' names, donation amounts, and comments in a marquee
+
+
+Limitations
+-----------
+
+* Only works for JustGiving "pages", not for "campaigns", "crowdfundings", etc.
 
 Credits
 ---------
