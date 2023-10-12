@@ -46,6 +46,35 @@ class SaveSizeAndPositionOnClose:
         event.accept()
 
 
+class ControllableBackgroundAndTextColour:
+    _background_colour = QColor(Qt.magenta)
+    _text_colour = QColor(Qt.white)
+
+    @property
+    def background_colour(self):
+        return self._background_colour
+
+    @background_colour.setter
+    def background_colour(self, colour):
+        self._background_colour = colour
+        self.update_stylesheet()
+
+    @property
+    def text_colour(self):
+        return self._text_colour
+
+    @text_colour.setter
+    def text_colour(self, colour):
+        self._text_colour = colour
+        self.update_stylesheet()
+
+    def update_stylesheet(self):
+        self.setStyleSheet(
+            f"color: {self.text_colour.name()};"
+            f"background-color: {self.background_colour.name()};"
+        )
+
+
 class Marquee(QWidget, SaveSizeAndPositionOnClose):
     """Marquee class courtesy of https://stackoverflow.com/questions/36297429/smooth-scrolling-text-in-qlabel"""
 
@@ -216,7 +245,9 @@ class ProgressBar(QWidget, SaveSizeAndPositionOnClose):
         painter.drawRect(margin, margin, box_width, box_height)
 
 
-class LatestDonor(QWidget, SaveSizeAndPositionOnClose):
+class LatestDonor(
+    QWidget, SaveSizeAndPositionOnClose, ControllableBackgroundAndTextColour
+):
     _donor = None
 
     def __init__(self, parent=None):
@@ -252,15 +283,6 @@ class LatestDonor(QWidget, SaveSizeAndPositionOnClose):
         self._donor = donor
         self.name.setText(f"{donor.name}: {donor.amount}")
         self.message.setText(donor.comment)
-
-    @property
-    def text_colour(self):
-        return self._text_colour
-
-    @text_colour.setter
-    def text_colour(self, colour):
-        self._text_colour = colour
-        self.setStyleSheet(f"color: {colour.name()}")
 
 
 class ElidingLabel(QLabel):
@@ -304,9 +326,10 @@ class SingleDonor(QWidget):
             self.amount.setText("")
 
 
-class DonorList(QWidget, SaveSizeAndPositionOnClose):
+class DonorList(
+    QWidget, SaveSizeAndPositionOnClose, ControllableBackgroundAndTextColour
+):
     _donors = None
-    _text_colour = Qt.white
 
     def __init__(self, num_donors=10, parent=None):
         super().__init__(parent=parent)
@@ -353,15 +376,6 @@ class DonorList(QWidget, SaveSizeAndPositionOnClose):
             donors[: len(self.donor_widgets)], self.donor_widgets, fillvalue=NULL_DONOR
         ):
             donor_widget.donor = donor
-
-    @property
-    def text_colour(self):
-        return self._text_colour
-
-    @text_colour.setter
-    def text_colour(self, colour):
-        self._text_colour = colour
-        self.setStyleSheet(f"color: {colour.name()}")
 
 
 class ShowButton(QPushButton):
@@ -560,16 +574,13 @@ class JustGivingTotaliser(QMainWindow):
                 title="Choose window background colour",
             )
         if colour.isValid():
-            self.background_colour = colour
             self.settings.setValue(f"background_colour", colour)
-            for window in (
-                self,
-                self.progress_bar,
-                self.latest_donor,
-                self.donor_list,
-                self.marquee,
-            ):
+
+            for window in self, self.progress_bar, self.marquee:
                 window.setStyleSheet(f"background-color: {colour.name()}")
+
+            for window in self, self.latest_donor, self.donor_list:
+                window.background_colour = colour
 
     def help_menu(self):
         """Create a help submenu with an About item tha opens an about dialog."""
