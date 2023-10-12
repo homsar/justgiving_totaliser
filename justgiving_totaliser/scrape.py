@@ -42,7 +42,65 @@ def get_donors(soup):
     return donors
 
 
-def get_data(url):
+def currency_to_string(currencyCode, value):
+    known_currencies = {"GBP": "£", "USD": "$", "EUR": "€"}
+
+    if currencyCode in known_currencies:
+        return f"{known_currencies[currencyCode]}{value / 100:.02f}"
+
+    return f"{currencyCode} {value}"
+
+
+def get_donors_graphql(soup, slug, num_donors):
+    query = f"""
+    {{
+      page(slug: "{slug}", type: ONE_PAGE) {{
+        donations (last: {num_donors}) {{
+          nodes {{
+            amount {{
+              currencyCode
+              value
+            }}
+            message
+            displayName
+          }}
+        }}
+      }}
+    }}"""
+
+    url = "https://graphql.justgiving.com/"
+    response = requests.post(url, json={"query": query})
+
+    if not 200 <= response.status_code < 300:
+        raise RuntimError(f"{response.status_code} from graphql server")
+
+    raw_donations = response.json()["data"]["page"]["donations"]["nodes"]
+    donations = []
+
+    for raw_donation in raw_donations:
+        donations.append(
+            Donor(
+                raw_donation["displayName"],
+                raw_donation["message"],
+                currency_to_string(**raw_donation["amount"]),
+            )
+        )
+
+    return donations
+
+
+def get_slug(url):
+    site = "justgiving.com/"
+    if site not in url:
+        raise ValueError("URL is not on justgiving.com, giving up")
+    slug = url[url.index(site) + len(site) :]
+    if "?" in slug:
+        slug = slug[: slug.index("?")]
+
+    return slug
+
+
+def get_data(url, num_donors=5):
     """Given a JustGiving `url`, return the current total and target amounts, and the currency symbol."""
 
     response = requests.get(url)
@@ -54,5 +112,12 @@ def get_data(url):
     soup = BeautifulSoup(markup=response.text, features="html.parser")
     totals = get_totals(soup)
     donors = get_donors(soup)
+
+    if len(donors) < num_donors:
+        try:
+            slug = get_slug(url)
+            donors = get_donors_graphql(soup, slug, num_donors)
+        except Exception as ex:
+            print(f"Couldn't get graphql: {ex}")
 
     return totals, donors

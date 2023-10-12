@@ -78,7 +78,8 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose):
     @text_colour.setter
     def text_colour(self, colour):
         self._text_colour = colour
-        self.setText(self.document.toPlainText(), reset=False)
+        if self.document:
+            self.setText(self.document.toPlainText(), reset=False)
 
     _donors = None
     _donor_iterator = None
@@ -307,7 +308,7 @@ class DonorList(QWidget, SaveSizeAndPositionOnClose):
     _donors = None
     _text_colour = Qt.white
 
-    def __init__(self, num_donors=5, parent=None):
+    def __init__(self, num_donors=10, parent=None):
         super().__init__(parent=parent)
 
         self.resize(200, 250)
@@ -598,7 +599,9 @@ class JustGivingTotaliser(QMainWindow):
 
     def update_data(self):
         if self.url:
-            self.progress_bar.totals, donors = get_data(self.url)
+            self.progress_bar.totals, donors = get_data(
+                self.url, len(self.donor_list.donor_widgets)
+            )
             self.latest_donor.donor = donors[0]
             self.donor_list.donors = donors[:]
             self.marquee.donors = donors[:]
