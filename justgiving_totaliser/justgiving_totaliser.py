@@ -440,7 +440,9 @@ class JustGivingTotaliser(QMainWindow):
     def init_settings(self):
         self.settings = QSettings("h0m54r", "justgiving_totaliser")
         self.url = self.settings.value("url", defaultValue=None)
-        self.timer_interval = self.settings.value("timer_interval", defaultValue=60_000)
+        self.timer_interval = int(
+            self.settings.value("timer_interval", defaultValue=60_000)
+        )
         if self.url:
             try:
                 self.update_data()
@@ -461,17 +463,19 @@ class JustGivingTotaliser(QMainWindow):
             widget.settings = self.settings
             widget.key = key
 
-            width = self.settings.value(f"{key}/width", default_width)
-            height = self.settings.value(f"{key}/height", default_height)
+            width = int(self.settings.value(f"{key}/width", default_width))
+            height = int(self.settings.value(f"{key}/height", default_height))
             left = self.settings.value(f"{key}/left", None)
             top = self.settings.value(f"{key}/top", None)
 
             widget.resize(width, height)
             if left and top:
-                widget.move(left, top)
+                widget.move(int(left), int(top))
 
-        self.marquee.speed = self.settings.value("marquee/speed", 50)
-        self.donor_list.num_donors = self.settings.value("donor_list/num_donors", 10)
+        self.marquee.speed = float(self.settings.value("marquee/speed", 50))
+        self.donor_list.num_donors = int(
+            self.settings.value("donor_list/num_donors", 10)
+        )
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
