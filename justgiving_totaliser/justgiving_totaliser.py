@@ -1,11 +1,12 @@
 from functools import partial
+from html import escape
 from itertools import zip_longest
 import sys
 
 import pkg_resources
 
-from PyQt5.QtCore import Qt, QRect, QSettings, QSize, QTimer
-from PyQt5.QtGui import QColor, QIcon, QPainter, QBrush, QFont, QPen
+from PyQt5.QtCore import Qt, QEvent, QRect, QSettings, QSize, QTimer, pyqtSlot
+from PyQt5.QtGui import QColor, QIcon, QPainter, QBrush, QFont, QPen, QTextDocument, QFontMetrics
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -26,22 +27,119 @@ from .scrape import get_data, NULL_DONOR
 DEFAULT_FONT = "Arial"
 
 
-def closeEvent(self, event):
-    self.settings.setValue(f"{self.key}/width", self.size().width())
-    self.settings.setValue(f"{self.key}/height", self.size().height())
-    self.settings.setValue(f"{self.key}/left", self.pos().x())
-    self.settings.setValue(f"{self.key}/top", self.pos().y())
+class SaveSizeAndPositionOnClose:
+    def closeEvent(self, event):
+        self.settings.setValue(f"{self.key}/width", self.size().width())
+        self.settings.setValue(f"{self.key}/height", self.size().height())
+        self.settings.setValue(f"{self.key}/left", self.pos().x())
+        self.settings.setValue(f"{self.key}/top", self.pos().y())
 
-    event.accept()
+        event.accept()
 
 
-class ProgressBar(QWidget):
+class Marquee(QWidget, SaveSizeAndPositionOnClose):
+    '''Marquee class courtesy of https://stackoverflow.com/questions/36297429/smooth-scrolling-text-in-qlabel'''
+
+    x = 0
+
+    paused = True
+    document = None
+    _speed = 50
+    increment = 1
+    timer = None
+
+    text_font = QFont(DEFAULT_FONT, 18)
+    _text_colour = QColor(Qt.white)
+
+    @property
+    def speed(self):
+        return self._speed
+
+    @speed.setter
+    def speed(self, speed):
+        self._speed = speed
+        self.settings.setValue("marquee/speed", speed)
+        if self.timer and self.timer.isActive:
+            self.timer.setInterval(int((1 / self.speed) * 1000))
+
+    @property
+    def text_colour(self):
+        return self._text_colour
+
+    @text_colour.setter
+    def text_colour(self, colour):
+        self._text_colour = colour
+        self.setText(self.document.toPlainText(), reset=False)
+
+    _donors = None
+    _donor_iterator = None
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.fm = QFontMetrics(self.text_font)
+
+    @property
+    def donors(self):
+        return self._donors
+
+    @donors.setter
+    def donors(self, donors):
+        self._donors = donors
+
+        if self.paused:
+            self.setText(self.format_donor(self.get_next_donor()))
+            self.paused = False
+
+    def format_donor(self, donor):
+        return f"{donor.name} donated {donor.amount}{(', commenting “' + donor.comment + '”') if donor.comment else ''}"
+
+    def setText(self, value, reset=True):
+        self.document = QTextDocument(self)
+        self.document.setDefaultStyleSheet(f"body {{ color: {self.text_colour.name()}; }}")
+        self.document.setDefaultFont(self.text_font)
+        self.document.setHtml("<body>" + escape(value) + "</body>")
+        # I multiplied by 1.06 because otherwise the text goes on 2 lines
+        self.document.setTextWidth(self.fm.width(value) * 1.06)
+        self.document.setUseDesignMetrics(True)
+
+        if reset:
+            self.x = self.width()
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.translate)
+            self.timer.start(int((1 / self.speed) * 1000))
+
+    def get_next_donor(self):
+        if not self._donor_iterator:
+            self._donor_iterator = iter(self._donors)
+        try:
+            return next(self._donor_iterator)
+        except StopIteration:
+            self._donor_iterator = iter(self._donors)
+            return next(self._donor_iterator)
+
+    def translate(self):
+        if not self.paused:
+            if -self.x < self.document.textWidth():
+                self.x -= self.increment
+            else:
+                self.timer.stop()
+                self.setText(self.format_donor(self.get_next_donor()))
+        self.repaint()
+
+    def paintEvent(self, event):
+        if self.document:
+            p = QPainter(self)
+            p.setBrush(QBrush(Qt.white, Qt.SolidPattern))
+            p.translate(self.x, 0)
+            self.document.drawContents(p)
+        return super().paintEvent(event)
+
+
+class ProgressBar(QWidget, SaveSizeAndPositionOnClose):
     totals = None
 
     _bar_colour = Qt.green
     _text_colour = Qt.darkGreen
-
-    closeEvent = closeEvent
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -104,10 +202,8 @@ class ProgressBar(QWidget):
         painter.drawRect(margin, margin, box_width, box_height)
 
 
-class LatestDonor(QWidget):
+class LatestDonor(QWidget, SaveSizeAndPositionOnClose):
     _donor = None
-
-    closeEvent = closeEvent
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -184,11 +280,9 @@ class SingleDonor(QWidget):
             self.amount.setText("")
 
 
-class DonorList(QWidget):
+class DonorList(QWidget, SaveSizeAndPositionOnClose):
     _donors = None
     _text_colour = Qt.white
-
-    closeEvent = closeEvent
 
     def __init__(self, num_donors=5, parent=None):
         super().__init__(parent=parent)
@@ -257,6 +351,7 @@ class JustGivingTotaliser(QMainWindow):
         self.progress_bar = ProgressBar()
         self.latest_donor = LatestDonor()
         self.donor_list = DonorList()
+        self.marquee = Marquee()
 
         self.layout = QVBoxLayout()
 
@@ -264,6 +359,7 @@ class JustGivingTotaliser(QMainWindow):
                 (self.progress_bar, "Progress bar"),
                 (self.latest_donor, "Latest donor"),
                 (self.donor_list, "Donor list"),
+                (self.marquee, "Donor marquee"),
         ]:
             button = ShowButton(caption, self, widget)
             self.layout.addWidget(button)
@@ -293,28 +389,33 @@ class JustGivingTotaliser(QMainWindow):
         if self.url:
             try:
                 self.update_data()
-            except Exception:
+            except Exception as ex:
+                print("Swallowing exception:", ex)
+                print("Resetting url to None just in case")
                 self.url = None
             else:
                 self.pause(force_resume=True)
 
-        for widget, key, width, height in [
+        for widget, key, default_width, default_height in [
                 (self.progress_bar, "bar", 500, 150),
                 (self.latest_donor, "latest", 500, 150),
                 (self.donor_list, "list", 250, 250),
+                (self.marquee, "marquee", 500, 150),
                 (self, "mainWindow", 250, 250),
         ]:
             widget.settings = self.settings
             widget.key = key
 
-            width = self.settings.value(f"{key}/width", width)
-            height = self.settings.value(f"{key}/height", height)
+            width = self.settings.value(f"{key}/width", default_width)
+            height = self.settings.value(f"{key}/height", default_height)
             left = self.settings.value(f"{key}/left", None)
             top = self.settings.value(f"{key}/top", None)
 
             widget.resize(width, height)
             if left and top:
                 widget.move(left, top)
+
+        self.marquee.speed = self.settings.value("marquee/speed", 50)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -337,6 +438,13 @@ class JustGivingTotaliser(QMainWindow):
         self.refresh_time_action.setShortcut("CTRL+R")
         self.refresh_time_action.triggered.connect(self.set_refresh_time)
 
+        self.marquee_speed_action = QAction("Set marquee speed", self)
+        self.marquee_speed_action.setStatusTip(
+            "Set the speed at which the marquee moves."
+        )
+        self.marquee_speed_action.setShortcut("CTRL+S")
+        self.marquee_speed_action.triggered.connect(self.set_marquee_speed)
+
         self.exit_action = QAction("Exit Application", self)
         self.exit_action.setStatusTip("Exit the application.")
         self.exit_action.setShortcut("CTRL+Q")
@@ -345,6 +453,7 @@ class JustGivingTotaliser(QMainWindow):
         self.file_sub_menu.addAction(self.set_url_action)
         self.file_sub_menu.addAction(self.pause_action)
         self.file_sub_menu.addAction(self.refresh_time_action)
+        self.file_sub_menu.addAction(self.marquee_speed_action)
         self.file_sub_menu.addAction(self.exit_action)
 
     def init_colours(self):
@@ -356,6 +465,7 @@ class JustGivingTotaliser(QMainWindow):
                 (self.progress_bar, "text_colour", "progress bar text", QColor(Qt.darkGreen)),
                 (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
                 (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
+                (self.marquee, "text_colour", "marquee text", QColor(Qt.white)),
         ]:
             def set_colour(colour, widget, attrname, text):
                 colour = QColorDialog.getColor(initial=getattr(widget, attrname), parent=self, title=f"Choose {text} colour")
@@ -407,11 +517,24 @@ class JustGivingTotaliser(QMainWindow):
                 self.timer.stop()
                 self.timer.start(self.timer_interval)
 
+    def set_marquee_speed(self):
+        marquee_speed, accept = QInputDialog.getDouble(
+            self,
+            "Enter speed",
+            "Enter the speed at which you want the marquee to move."
+            "(One pixel every 1 / N seconds.)",
+            self.marquee.speed,
+        )
+
+        if accept:
+            self.marquee.speed = marquee_speed
+
     def update_data(self):
         if self.url:
             self.progress_bar.totals, donors = get_data(self.url)
             self.latest_donor.donor = donors[0]
             self.donor_list.donors = donors[:]
+            self.marquee.donors = donors[:]
 
         self.update()
         self.progress_bar.update()
@@ -425,6 +548,11 @@ class JustGivingTotaliser(QMainWindow):
             self.pause_action.setText("Resume")
 
     def closeEvent(self, event):
+        self.settings.setValue(f"{self.key}/width", self.size().width())
+        self.settings.setValue(f"{self.key}/height", self.size().height())
+        self.settings.setValue(f"{self.key}/left", self.pos().x())
+        self.settings.setValue(f"{self.key}/top", self.pos().y())
+
         QApplication.closeAllWindows()
         event.accept()
 
