@@ -77,6 +77,7 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.fm = QFontMetrics(self.text_font)
+        self.setWindowTitle("JustGiving Marquee")
 
     @property
     def donors(self):
@@ -144,6 +145,7 @@ class ProgressBar(QWidget, SaveSizeAndPositionOnClose):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.resize(512, 150)
+        self.setWindowTitle("JustGiving Progress Bar")
 
     @property
     def bar_colour(self):
@@ -227,6 +229,7 @@ class LatestDonor(QWidget, SaveSizeAndPositionOnClose):
         self.layout.addWidget(self.message)
 
         self.setLayout(self.layout)
+        self.setWindowTitle("JustGiving Latest Donor")
 
     @property
     def donor(self):
@@ -300,6 +303,7 @@ class DonorList(QWidget, SaveSizeAndPositionOnClose):
             self.layout.addWidget(donor_widget)
 
         self.setLayout(self.layout)
+        self.setWindowTitle("JustGiving Donor List")
 
     @property
     def donors(self):
@@ -339,7 +343,7 @@ class JustGivingTotaliser(QMainWindow):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
 
-        self.setWindowTitle("JustGivingTotaliser")
+        self.setWindowTitle("JustGiving Main Menu")
         window_icon = pkg_resources.resource_filename(
             "justgiving_totaliser.images", "ic_insert_drive_file_black_48dp_1x.png"
         )
