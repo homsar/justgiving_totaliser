@@ -312,6 +312,21 @@ class DonorList(QWidget, SaveSizeAndPositionOnClose):
         super().__init__(parent=parent)
 
         self.resize(200, 250)
+        self.num_donors = num_donors
+        self.setWindowTitle("JustGiving Donor List")
+
+    @property
+    def num_donors(self):
+        return self._num_donors
+
+    @num_donors.setter
+    def num_donors(self, num_donors):
+        self._num_donors = num_donors
+        self.set_up_widgets(num_donors)
+
+    def set_up_widgets(self, num_donors):
+        if isinstance(self.layout, QVBoxLayout):
+            QWidget().setLayout(self.layout)
 
         self.layout = QVBoxLayout()
         self.layout.setSpacing(0)
@@ -324,7 +339,8 @@ class DonorList(QWidget, SaveSizeAndPositionOnClose):
             self.layout.addWidget(donor_widget)
 
         self.setLayout(self.layout)
-        self.setWindowTitle("JustGiving Donor List")
+        if self.donors:
+            self.donors = self.donors
 
     @property
     def donors(self):
@@ -441,6 +457,7 @@ class JustGivingTotaliser(QMainWindow):
                 widget.move(left, top)
 
         self.marquee.speed = self.settings.value("marquee/speed", 50)
+        self.donor_list.num_donors = self.settings.value("donor_list/num_donors", 10)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -470,6 +487,11 @@ class JustGivingTotaliser(QMainWindow):
         self.marquee_speed_action.setShortcut("CTRL+S")
         self.marquee_speed_action.triggered.connect(self.set_marquee_speed)
 
+        self.num_donors_action = QAction("Set number of donations", self)
+        self.num_donors_action.setStatusTip("Set the number of donations to display")
+        self.num_donors_action.setShortcut("CTRL+N")
+        self.num_donors_action.triggered.connect(self.set_num_donors)
+
         self.exit_action = QAction("Exit Application", self)
         self.exit_action.setStatusTip("Exit the application.")
         self.exit_action.setShortcut("CTRL+Q")
@@ -479,6 +501,7 @@ class JustGivingTotaliser(QMainWindow):
         self.file_sub_menu.addAction(self.pause_action)
         self.file_sub_menu.addAction(self.refresh_time_action)
         self.file_sub_menu.addAction(self.marquee_speed_action)
+        self.file_sub_menu.addAction(self.num_donors_action)
         self.file_sub_menu.addAction(self.exit_action)
 
     def init_colours(self):
@@ -596,6 +619,18 @@ class JustGivingTotaliser(QMainWindow):
 
         if accept:
             self.marquee.speed = marquee_speed
+
+    def set_num_donors(self):
+        num_donors, accept = QInputDialog.getInt(
+            self,
+            "Enter number of donors",
+            "Enter the number of donors to retrieve and display",
+            self.donor_list.num_donors,
+        )
+
+        if accept:
+            self.donor_list.num_donors = num_donors
+            self.settings.setValue("donor_list/num_donors", num_donors)
 
     def update_data(self):
         if self.url:
