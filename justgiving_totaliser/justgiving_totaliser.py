@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import partial
 from html import escape
 from itertools import zip_longest
@@ -385,6 +386,47 @@ class ShowButton(QPushButton):
         self.clicked.connect(self.target.show)
 
 
+class TimerStatusDisplay(QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.layout = QVBoxLayout()
+
+        self.status = QLabel("Inactive")
+        self.status.setFont(QFont(DEFAULT_FONT, 48))
+        self.status.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.status)
+
+        self.lastcheck = QLabel("Not yet started")
+        self.lastcheck.setFont(QFont(DEFAULT_FONT, 14))
+        self.lastcheck.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.lastcheck)
+
+        self.setLayout(self.layout)
+
+
+class StatusDisplayingTimer(QTimer):
+    def __init__(self, status_display, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.status_display = status_display
+        self.timeout.connect(self.update_lastcheck)
+
+    def start(self, *args, **kwargs):
+        super().start(*args, **kwargs)
+        self.status_display.setStyleSheet("color: #00a000")
+        self.status_display.status.setText("Running")
+
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+        self.status_display.setStyleSheet("color: #c00000")
+        self.status_display.status.setText("Stopped!")
+
+    def update_lastcheck(self, verb=None):
+        self.status_display.lastcheck.setText(
+            f"Last {verb if verb else 'called'}: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+
 class JustGivingTotaliser(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
 
@@ -410,6 +452,9 @@ class JustGivingTotaliser(QMainWindow):
 
         self.layout = QVBoxLayout()
 
+        self.timer_status_display = TimerStatusDisplay()
+        self.layout.addWidget(self.timer_status_display)
+
         for widget, caption in [
             (self.progress_bar, "Progress bar"),
             (self.latest_donor, "Latest donor"),
@@ -434,7 +479,7 @@ class JustGivingTotaliser(QMainWindow):
         self.init_colours()
 
     def init_timers(self):
-        self.timer = QTimer()
+        self.timer = StatusDisplayingTimer(self.timer_status_display)
         self.timer.timeout.connect(self.update_data)
 
         self.repaint_timer = QTimer()
@@ -662,6 +707,7 @@ class JustGivingTotaliser(QMainWindow):
 
         self.update()
         self.progress_bar.update()
+        self.timer.update_lastcheck(verb="checked")
 
     def repaint_all(self):
         self.update()
