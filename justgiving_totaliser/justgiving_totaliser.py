@@ -720,6 +720,9 @@ class JustGivingTotaliser(QMainWindow):
         if not self.timer.isActive() or force_resume:
             self.timer.start(self.timer_interval)
             self.pause_action.setText("Pause")
+
+            # Don't want to wait for timer to time out after resuming
+            self.update_data()
         else:
             self.timer.stop()
             self.pause_action.setText("Resume")
