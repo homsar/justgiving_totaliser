@@ -732,6 +732,15 @@ class JustGivingTotaliser(QMainWindow):
     def new_donors(self, donors):
         if not self.donors:
             return None
+
+        if len(donors) < len(self.donors):
+            # If the number of donations goes down, something has gone wrong
+            return None
+
+        if self.donors[0] not in donors:
+            # List has completely changed; probably something has gone wrong
+            return None
+
         new_donors = []
         for donor in donors:
             if donor not in self.donors:
