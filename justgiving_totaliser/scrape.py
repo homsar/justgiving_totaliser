@@ -43,7 +43,7 @@ def get_donors(soup):
 
 
 def currency_to_string(currencyCode, value):
-    known_currencies = {"GBP": "£", "USD": "$", "EUR": "€"}
+    known_currencies = {"GBP": "£", "USD": "$", "EUR": "€", "AUD": "AU$"}
 
     if currencyCode in known_currencies:
         return f"{known_currencies[currencyCode]}{value / 100:.02f}"

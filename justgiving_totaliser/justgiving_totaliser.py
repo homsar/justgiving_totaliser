@@ -322,7 +322,15 @@ class SingleDonor(QWidget):
         self._donor = donor
         self.name.setText(donor.name)
         if donor.amount.split():
-            self.amount.setText(donor.amount.split()[0])
+            amount = []
+            for element in donor.amount.split():
+                amount.append(element)
+                try:
+                    float(element)
+                except ValueError:
+                    continue
+
+            self.amount.setText(" ".join(amount))
         else:
             self.amount.setText("")
 
