@@ -2,11 +2,12 @@ from datetime import datetime
 from functools import partial
 from html import escape
 from itertools import zip_longest
+import os
 import sys
 
 import pkg_resources
 
-from PyQt5.QtCore import Qt, QEvent, QRect, QSettings, QSize, QTimer, pyqtSlot
+from PyQt5.QtCore import Qt, QEvent, QRect, QSettings, QSize, QTimer, QUrl, pyqtSlot
 from PyQt5.QtGui import (
     QColor,
     QIcon,
@@ -17,6 +18,8 @@ from PyQt5.QtGui import (
     QTextDocument,
     QFontMetrics,
 )
+from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
+from PyQt5.QtTextToSpeech import QTextToSpeech
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -444,6 +447,8 @@ class JustGivingTotaliser(QMainWindow):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
 
+        self.source_path = os.path.dirname(os.path.realpath(__file__))
+
         self.setWindowTitle("JustGiving Main Menu")
         window_icon = pkg_resources.resource_filename(
             "justgiving_totaliser.images", "ic_insert_drive_file_black_48dp_1x.png"
@@ -485,6 +490,28 @@ class JustGivingTotaliser(QMainWindow):
         self.init_settings()
 
         self.init_colours()
+        self.init_announcements()
+
+    def init_announcements(self):
+        self.tts = QTextToSpeech()
+        if self.tts.state() == QTextToSpeech.BackendError:
+            self.tts = None
+        else:
+            self.stop_announcement_action = QAction("Stop announcement", self)
+            self.stop_announcement_action.setStatusTip(
+                "Stop any current announcements from playing"
+            )
+            self.stop_announcement_action.setShortcut("CTRL+K")
+            self.stop_announcement_action.triggered.connect(self.stop_announcement)
+            self.file_sub_menu.addAction(self.stop_announcement_action)
+
+        self.fanfare = QMediaPlayer()
+        self.fanfare.setMedia(
+            QMediaContent(QUrl.fromLocalFile(f"{self.source_path}/assets/fanfare.mp3"))
+        )
+        self.fanfare.setVolume(100)
+        self.fanfare_timer = QTimer()
+        self.fanfare_timer.timeout.connect(self.speak)
 
     def init_timers(self):
         self.timer = StatusDisplayingTimer(self.timer_status_display)
@@ -704,11 +731,51 @@ class JustGivingTotaliser(QMainWindow):
             self.donor_list.num_donors = num_donors
             self.settings.setValue("donor_list/num_donors", num_donors)
 
+    def new_donors(self, donors):
+        if not self.donors:
+            return None
+        new_donors = []
+        for donor in donors:
+            if donor not in self.donors:
+                new_donors.append(donor)
+            else:
+                return new_donors
+
+    def speak(self):
+        max_wait_time = 10
+        if (
+            self.fanfare.state() == QMediaPlayer.StoppedState
+            or self.fanfare_wait_time >= max_wait_time
+        ):
+            self.fanfare_timer.stop()
+            self.tts.say(self.tts_to_say)
+        else:
+            self.fanfare_wait_time += 1
+
+    def announce(self, new_donors):
+        self.stop_announcement()
+        self.fanfare.play()
+        if self.tts:
+            self.fanfare_wait_time = 0
+            self.tts_to_say = ". ".join(
+                self.marquee.format_donor(donor) for donor in new_donors
+            )
+            self.fanfare_timer.start(500)
+
+    def stop_announcement(self):
+        self.fanfare_timer.stop()
+        self.fanfare.stop()
+        if self.tts and self.tts.state() == QTextToSpeech.Speaking:
+            self.tts.stop()
+
     def update_data(self):
         if self.url:
             self.progress_bar.totals, donors = get_data(
                 self.url, len(self.donor_list.donor_widgets)
             )
+            if new_donors := self.new_donors(donors):
+                self.announce(new_donors)
+            self.donors = donors
             self.latest_donor.donor = donors[0]
             self.donor_list.donors = donors[:]
             self.marquee.donors = donors[:]
