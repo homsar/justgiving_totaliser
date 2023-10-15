@@ -16,9 +16,13 @@ setup(
     packages=[
         "justgiving_totaliser",
         "justgiving_totaliser.images",
+        "justgiving_totaliser.assets",
         "justgiving_totaliser.tests",
     ],
-    package_data={"justgiving_totaliser.images": ["*.png"]},
+    package_data={
+        "justgiving_totaliser.images": ["*.png"],
+        "justgiving_totaliser.assets": ["*.mp3"],
+    },
     entry_points={
         "console_scripts": [
             "JustGivingTotaliser=justgiving_totaliser.justgiving_totaliser:main"
