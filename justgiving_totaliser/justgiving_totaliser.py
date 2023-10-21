@@ -35,7 +35,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from .scrape import get_data, NULL_DONOR
+from .scrape import get_data, Donor, NULL_DONOR
 
 DEFAULT_FONT = "Arial"
 
@@ -482,6 +482,7 @@ class JustGivingTotaliser(QMainWindow):
         self.about_dialog = AboutDialog()
 
         self.file_menu()
+        self.test_menu()
         self.help_menu()
 
         self.init_timers()
@@ -651,6 +652,28 @@ class JustGivingTotaliser(QMainWindow):
         )
         self.colour_menu.addAction(background_colour_action)
         self.colour_menu_items.append(background_colour_action)
+
+    def test_menu(self):
+        test_donations = [
+            Donor("Test donor", "Testing, one two, three.", "NOTHING!"),
+            Donor(
+                "Another test onor",
+                "This is a test of the Emergency Broadcast System. "
+                "This is only a test.",
+                "NOTHING!",
+            ),
+        ]
+
+        self.test_menu = self.menu_bar.addMenu("Test")
+
+        self.test_audio_action = QAction("Test audio", self)
+        self.test_audio_action.setStatusTip(
+            "Play a test announcement to check audio levels."
+        )
+        self.test_audio_action.setShortcut("CTRL+T")
+        self.test_audio_action.triggered.connect(lambda: self.announce(test_donations))
+
+        self.test_menu.addAction(self.test_audio_action)
 
     def set_background_colours(self, colour=None):
         if not colour:
