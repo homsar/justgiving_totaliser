@@ -50,6 +50,35 @@ class SaveSizeAndPositionOnClose:
         event.accept()
 
 
+class HideTitleBarOptional:
+    _title_bar_hidden = False
+
+    @property
+    def title_bar_hidden(self):
+        return self._title_bar_hidden
+
+    @title_bar_hidden.setter
+    def title_bar_hidden(self, hidden):
+        self._title_bar_hidden = hidden
+
+        if hidden:
+            self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~Qt.FramelessWindowHint)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.__press_pos = event.pos()  # remember starting position
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.__press_pos = None
+
+    def mouseMoveEvent(self, event):
+        if self.__press_pos:  # follow the mouse
+            self.move(self.pos() + (event.pos() - self.__press_pos))
+
+
 class ControllableBackgroundAndTextColour:
     _background_colour = QColor(Qt.magenta)
     _text_colour = QColor(Qt.white)
@@ -79,7 +108,7 @@ class ControllableBackgroundAndTextColour:
         )
 
 
-class Marquee(QWidget, SaveSizeAndPositionOnClose):
+class Marquee(QWidget, SaveSizeAndPositionOnClose, HideTitleBarOptional):
     """Marquee class courtesy of https://stackoverflow.com/questions/36297429/smooth-scrolling-text-in-qlabel"""
 
     x = 0
@@ -181,7 +210,7 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose):
         return super().paintEvent(event)
 
 
-class ProgressBar(QWidget, SaveSizeAndPositionOnClose):
+class ProgressBar(QWidget, SaveSizeAndPositionOnClose, HideTitleBarOptional):
     totals = None
 
     _bar_colour = Qt.green
@@ -250,7 +279,10 @@ class ProgressBar(QWidget, SaveSizeAndPositionOnClose):
 
 
 class LatestDonor(
-    QWidget, SaveSizeAndPositionOnClose, ControllableBackgroundAndTextColour
+    QWidget,
+    SaveSizeAndPositionOnClose,
+    ControllableBackgroundAndTextColour,
+    HideTitleBarOptional,
 ):
     _donor = None
 
@@ -337,7 +369,10 @@ class SingleDonor(QWidget):
 
 
 class DonorList(
-    QWidget, SaveSizeAndPositionOnClose, ControllableBackgroundAndTextColour
+    QWidget,
+    SaveSizeAndPositionOnClose,
+    ControllableBackgroundAndTextColour,
+    HideTitleBarOptional,
 ):
     _donors = None
 
@@ -555,6 +590,7 @@ class JustGivingTotaliser(QMainWindow):
             if left and top:
                 widget.move(int(left), int(top))
 
+        self.show_hide_title_bars(self.settings.value("hide_title_bars", False))
         self.marquee.speed = float(self.settings.value("marquee/speed", 50))
         self.donor_list.num_donors = int(
             self.settings.value("donor_list/num_donors", 10)
@@ -593,6 +629,25 @@ class JustGivingTotaliser(QMainWindow):
         self.num_donors_action.setShortcut("CTRL+N")
         self.num_donors_action.triggered.connect(self.set_num_donors)
 
+        self.hide_title_bars_action = QAction("Hide title bars", self)
+        self.hide_title_bars_action.setStatusTip(
+            "Hide the title bars of the windows intended to be streamed"
+        )
+        self.hide_title_bars_action.setShortcut("CTRL+B")
+        self.hide_title_bars_action.triggered.connect(
+            lambda: self.show_hide_title_bars(hide=True)
+        )
+
+        self.show_title_bars_action = QAction("Show title bars", self)
+        self.show_title_bars_action.setStatusTip(
+            "Show the title bars of the windows intended to be streamed"
+        )
+        self.show_title_bars_action.setShortcut("CTRL+B")
+        self.show_title_bars_action.setVisible(False)
+        self.show_title_bars_action.triggered.connect(
+            lambda: self.show_hide_title_bars(hide=False)
+        )
+
         self.exit_action = QAction("Exit Application", self)
         self.exit_action.setStatusTip("Exit the application.")
         self.exit_action.setShortcut("CTRL+Q")
@@ -603,6 +658,8 @@ class JustGivingTotaliser(QMainWindow):
         self.file_sub_menu.addAction(self.refresh_time_action)
         self.file_sub_menu.addAction(self.marquee_speed_action)
         self.file_sub_menu.addAction(self.num_donors_action)
+        self.file_sub_menu.addAction(self.hide_title_bars_action)
+        self.file_sub_menu.addAction(self.show_title_bars_action)
         self.file_sub_menu.addAction(self.exit_action)
 
     def init_colours(self):
@@ -797,6 +854,27 @@ class JustGivingTotaliser(QMainWindow):
         self.fanfare.stop()
         if self.tts and self.tts.state() == QTextToSpeech.Speaking:
             self.tts.stop()
+
+    def show_hide_title_bars(self, hide):
+        for window in (
+            self.progress_bar,
+            self.latest_donor,
+            self.donor_list,
+            self.marquee,
+        ):
+            visible = window.isVisible()
+            window.title_bar_hidden = hide
+            if visible:
+                window.show()
+
+        if hide:
+            self.hide_title_bars_action.setVisible(False)
+            self.show_title_bars_action.setVisible(True)
+        else:
+            self.hide_title_bars_action.setVisible(True)
+            self.show_title_bars_action.setVisible(False)
+
+        self.settings.setValue("hide_title_bars", hide)
 
     def update_data(self):
         if self.url:
