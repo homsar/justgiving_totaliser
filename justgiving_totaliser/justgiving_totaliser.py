@@ -35,6 +35,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from requests.exceptions import RequestException
+
 from .scrape import get_data, Donor, NULL_DONOR
 
 DEFAULT_FONT = "Arial"
@@ -436,39 +438,79 @@ class TimerStatusDisplay(QWidget):
 
         self.layout = QVBoxLayout()
 
-        self.status = QLabel("Inactive")
-        self.status.setFont(QFont(DEFAULT_FONT, 48))
-        self.status.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.status)
+        self._status = QLabel("Inactive")
+        self._status.setFont(QFont(DEFAULT_FONT, 48))
+        self._status.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self._status)
 
-        self.lastcheck = QLabel("Not yet started")
-        self.lastcheck.setFont(QFont(DEFAULT_FONT, 14))
-        self.lastcheck.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.lastcheck)
+        self._last_check = QLabel("Not yet started")
+        self._last_check.setFont(QFont(DEFAULT_FONT, 14))
+        self._last_check.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self._last_check)
 
         self.setLayout(self.layout)
 
+    @property
+    def colour(self):
+        return self._colour
+
+    @colour.setter
+    def colour(self, colour):
+        self._colour = colour
+        self.setStyleSheet(f"color: {colour}")
+
+    @property
+    def status(self):
+        return self._status.text
+
+    @status.setter
+    def status(self, text):
+        self._status.setText(text)
+
+    @property
+    def last_check(self):
+        return self._last_check.text
+
+    @last_check.setter
+    def last_check(self, text):
+        self._last_check.setText(text)
+
 
 class StatusDisplayingTimer(QTimer):
+    _colour = None
+    last_check = "never"
+
     def __init__(self, status_display, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.status_display = status_display
-        self.timeout.connect(self.update_lastcheck)
+        self.timeout.connect(self.update_last_check)
 
     def start(self, *args, **kwargs):
         super().start(*args, **kwargs)
-        self.status_display.setStyleSheet("color: #00a000")
-        self.status_display.status.setText("Running")
+        self.status_display.colour = "#00a000"
+        self.status_display.status = "Running"
 
     def stop(self, *args, **kwargs):
         super().stop(*args, **kwargs)
-        self.status_display.setStyleSheet("color: #c00000")
-        self.status_display.status.setText("Stopped!")
+        self.status_display.colour = "#c00000"
+        self.status_display.status = "Stopped!"
 
-    def update_lastcheck(self, verb=None):
-        self.status_display.lastcheck.setText(
-            f"Last {verb if verb else 'called'}: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    def update_last_check(self, verb=None, success=False):
+        self.status_display.last_check = (
+            f"Last {verb if verb else 'called'}: {self.last_check}"
         )
+        if success:
+            self.last_check = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.status_display.colour = "#00a000"
+
+    def update_failedcheck(self, verb=None):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.status_display.status = "Attempting to connect"
+        self.status_display.last_check = (
+            f"Update at {now} failed. Last successfully "
+            f"{verb if verb else 'called'} at {self.last_check}"
+        )
+        self.status_display.colour = "#606000"
 
 
 class JustGivingTotaliser(QMainWindow):
@@ -566,8 +608,6 @@ class JustGivingTotaliser(QMainWindow):
                 self.update_data()
             except Exception as ex:
                 print("Swallowing exception:", ex)
-                print("Resetting url to None just in case")
-                self.url = None
             else:
                 self.pause(force_resume=True)
 
@@ -766,6 +806,8 @@ class JustGivingTotaliser(QMainWindow):
 
         if accept:
             self.url = url
+            self.timer.status_display.status = "Connecting"
+            self.timer.status_display.last_check = "Waiting to connect..."
             self.settings.setValue("url", url)
             self.pause(force_resume=True)
             self.update_data()
@@ -876,11 +918,18 @@ class JustGivingTotaliser(QMainWindow):
 
         self.settings.setValue("hide_title_bars", hide)
 
-    def update_data(self):
+    def update_data(self, reraise=False):
         if self.url:
-            self.progress_bar.totals, donors = get_data(
-                self.url, len(self.donor_list.donor_widgets)
-            )
+            try:
+                self.progress_bar.totals, donors = get_data(
+                    self.url, len(self.donor_list.donor_widgets)
+                )
+            except (RequestException, RuntimeError):
+                self.timer.update_failedcheck(verb="checked")
+                if reraise:
+                    raise
+                return
+
             if new_donors := self.new_donors(donors):
                 self.announce(new_donors)
             self.donors = donors
@@ -890,7 +939,7 @@ class JustGivingTotaliser(QMainWindow):
 
         self.update()
         self.progress_bar.update()
-        self.timer.update_lastcheck(verb="checked")
+        self.timer.update_last_check(verb="checked", success=True)
 
     def repaint_all(self):
         self.update()
