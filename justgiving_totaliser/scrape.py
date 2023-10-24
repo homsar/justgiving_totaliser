@@ -1,14 +1,9 @@
-from collections import namedtuple
 from decimal import Decimal
 
 import requests
 from bs4 import BeautifulSoup
 
-
-Total = namedtuple("Total", ["raised", "target", "currency"])
-Donor = namedtuple("Donor", ["name", "comment", "amount"])
-
-NULL_DONOR = Donor("", "", "")
+from .types import Donor, Total, NULL_DONOR
 
 
 def get_totals(soup):
