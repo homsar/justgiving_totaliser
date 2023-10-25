@@ -28,6 +28,7 @@ from .settings import DEFAULT_FONT
 from .types import Donor
 
 from .widgets.about import AboutDialog
+from .widgets.countdown import Countdown
 from .widgets.donorlist import DonorList
 from .widgets.latestdonor import LatestDonor
 from .widgets.marquee import Marquee
@@ -66,6 +67,7 @@ class JustGivingTotaliser(QMainWindow):
         self.latest_donor = LatestDonor()
         self.donor_list = DonorList()
         self.marquee = Marquee()
+        self.countdown = Countdown()
 
         self.layout = QVBoxLayout()
 
@@ -77,6 +79,7 @@ class JustGivingTotaliser(QMainWindow):
             (self.latest_donor, "Latest donor"),
             (self.donor_list, "Donor list"),
             (self.marquee, "Donor marquee"),
+            (self.countdown, "Countdown"),
         ]:
             button = ShowButton(caption, self, widget)
             self.layout.addWidget(button)
@@ -88,6 +91,7 @@ class JustGivingTotaliser(QMainWindow):
         self.about_dialog = AboutDialog()
 
         self.file_menu()
+        self.time_menu()
         self.test_menu()
         self.help_menu()
 
@@ -145,6 +149,7 @@ class JustGivingTotaliser(QMainWindow):
             (self.latest_donor, "latest", 500, 150),
             (self.donor_list, "list", 250, 250),
             (self.marquee, "marquee", 500, 150),
+            (self.countdown, "countdown", 250, 150),
             (self, "mainWindow", 250, 250),
         ]:
             widget.settings = self.settings
@@ -164,6 +169,7 @@ class JustGivingTotaliser(QMainWindow):
         self.donor_list.num_donors = int(
             self.settings.value("donor_list/num_donors", 10)
         )
+        self.countdown.load_settings(self.settings)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -231,6 +237,10 @@ class JustGivingTotaliser(QMainWindow):
         self.file_sub_menu.addAction(self.show_title_bars_action)
         self.file_sub_menu.addAction(self.exit_action)
 
+    def time_menu(self):
+        self.time_menu = self.menu_bar.addMenu("Time")
+        self.countdown.set_up_menu(self.time_menu)
+
     def init_colours(self):
         self.colour_menu = self.menu_bar.addMenu("Colours")
         self.colour_menu_items = []
@@ -246,6 +256,7 @@ class JustGivingTotaliser(QMainWindow):
             (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
             (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
             (self.marquee, "text_colour", "marquee text", QColor(Qt.white)),
+            (self.countdown, "text_colour", "countdown text colour", QColor(Qt.white)),
         ]:
 
             def set_colour(colour, widget, attrname, text):
@@ -314,7 +325,7 @@ class JustGivingTotaliser(QMainWindow):
             for window in self, self.progress_bar, self.marquee:
                 window.setStyleSheet(f"background-color: {colour.name()}")
 
-            for window in self, self.latest_donor, self.donor_list:
+            for window in self, self.latest_donor, self.donor_list, self.countdown:
                 window.background_colour = colour
 
     def help_menu(self):
