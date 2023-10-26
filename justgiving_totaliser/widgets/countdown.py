@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import pyqtSignal, Qt, QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QAction,
@@ -55,6 +55,7 @@ class Countdown(
     HideTitleBarOptional,
 ):
     refresh_interval = 250
+    event_finish = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -135,7 +136,9 @@ class Countdown(
         )
         time_left = (end_time - datetime.now()).total_seconds()
         if time_left < 0:
-            self.label.setText("FINISHED!")
+            if self.label.text() != "FINISHED!":
+                self.label.setText("FINISHED!")
+                self.event_finish.emit()
         else:
             hours, remainder = divmod(time_left, 60 * 60)
             minutes, seconds = divmod(remainder, 60)

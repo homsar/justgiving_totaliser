@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QTextDocument
 from PyQt5.QtWidgets import QWidget
 
+from ..common import format_donor
 from ..settings import DEFAULT_FONT
 from .mixins import SaveSizeAndPositionOnClose, HideTitleBarOptional
 
@@ -60,11 +61,8 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose, HideTitleBarOptional):
         self._donors = donors
 
         if self.paused:
-            self.setText(self.format_donor(self.get_next_donor()))
+            self.setText(format_donor(self.get_next_donor()))
             self.paused = False
-
-    def format_donor(self, donor):
-        return f"{donor.name} donated {donor.amount}{(', commenting “' + donor.comment + '”') if donor.comment else ''}"
 
     def setText(self, value, reset=True):
         self.document = QTextDocument(self)
@@ -98,7 +96,7 @@ class Marquee(QWidget, SaveSizeAndPositionOnClose, HideTitleBarOptional):
                 self.x -= self.increment
             else:
                 self.timer.stop()
-                self.setText(self.format_donor(self.get_next_donor()))
+                self.setText(format_donor(self.get_next_donor()))
         self.repaint()
 
     def paintEvent(self, event):
