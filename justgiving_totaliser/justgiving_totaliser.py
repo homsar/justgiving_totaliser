@@ -523,7 +523,7 @@ class JustGivingTotaliser(QMainWindow):
             message += f"And that takes us over the next bonus threshold, adding an extra {self.format_bonus(bonus)}! Woo! "
         elif len(new_bonuses) > 1:
             total_bonus = sum(bonus.bonus for bonus in new_bonuses)
-            message += f"And that takes us over the next {len(new_bonuses)} thresholds, adding an extra {self.format_bonus(total_bonus)} in all! Woo! "
+            message += f"And that takes us over the next {len(new_bonuses)} bonus thresholds, adding an extra {self.format_bonus(total_bonus)} in all! Woo! "
 
         if old_total < target <= new_total:
             message += f"And that {'also ' if message else ''} takes us past our {currency}{target} target! Well done everyone!"
