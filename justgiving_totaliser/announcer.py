@@ -57,7 +57,9 @@ class Announcer(QObject):
             self.fanfare_timer.start(500)
 
     def announce_donors(self, new_donors):
-        self.announce_text(". ".join(format_donor(donor) for donor in new_donors))
+        self.announce_text(
+            ". ".join(format_donor(donor, quotes="straight") for donor in new_donors)
+        )
 
     def wait_and_announce_text(self, text, wait_on):
         logging.debug(f"Enqueueing announcement of {text}")
