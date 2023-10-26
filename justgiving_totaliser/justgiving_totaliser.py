@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from functools import partial
+import logging
 import os
 import sys
 
@@ -48,7 +49,7 @@ class JustGivingTotaliser(QMainWindow):
 
     donors = None
 
-    def __init__(self, parent=None):
+    def __init__(self, debug=False, parent=None):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
 
@@ -95,6 +96,9 @@ class JustGivingTotaliser(QMainWindow):
         self.time_menu()
         self.test_menu()
         self.help_menu()
+        if debug:
+            logging.debug("Enabling debug menu")
+            self.debug_menu()
 
         self.init_timers()
         self.init_settings()
@@ -327,6 +331,33 @@ class JustGivingTotaliser(QMainWindow):
 
         self.test_menu.addAction(self.test_audio_action)
 
+    def debug_menu(self):
+        self.debug_menu = self.menu_bar.addMenu("Debug")
+
+        self.test_audio_queue_action = QAction("Test queued audio", self)
+        self.test_audio_queue_action.setStatusTip("Play a test bonus announcement.")
+        self.test_audio_queue_action.triggered.connect(
+            lambda: self.bonus_announcer.wait_and_announce_text(
+                "This is a bonus announcement.", self.announcer
+            )
+        )
+
+        self.add_500_donation_action = QAction("Add £500 donation", self)
+        self.add_500_donation_action.setStatusTip(
+            "Pretend our total just went up by £500."
+        )
+        self.add_500_donation_action.triggered.connect(
+            lambda: self.check_threshold_crossings(
+                self.progress_bar.totals[0],
+                self.progress_bar.totals[0] + 500,
+                self.progress_bar.totals[1],
+                self.progress_bar.totals[2],
+            )
+        )
+
+        self.debug_menu.addAction(self.test_audio_queue_action)
+        self.debug_menu.addAction(self.add_500_donation_action)
+
     def set_background_colours(self, colour=None):
         if not colour:
             colour = QColorDialog.getColor(
@@ -555,9 +586,9 @@ class JustGivingTotaliser(QMainWindow):
         event.accept()
 
 
-def main():
+def main(debug):
     application = QApplication(sys.argv)
-    window = JustGivingTotaliser()
+    window = JustGivingTotaliser(debug=debug)
     desktop = QDesktopWidget().availableGeometry()
     width = (desktop.width() - window.width()) // 2
     height = (desktop.height() - window.height()) // 2
