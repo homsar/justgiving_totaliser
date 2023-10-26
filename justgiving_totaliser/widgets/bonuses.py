@@ -17,7 +17,7 @@ SingleBonus = namedtuple("SingleBonus", ["threshold", "bonus"])
 
 
 class SingleBonusWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, container=None, parent=None):
         super().__init__(parent=parent)
 
         self.layout = QHBoxLayout()
@@ -42,9 +42,15 @@ class SingleBonusWidget(QWidget):
         self.delete_button.clicked.connect(self.delete_me)
         self.layout.addWidget(self.delete_button)
 
+        self.container = container
+        if container is not None:
+            container.append(self)
+
         self.setLayout(self.layout)
 
     def delete_me(self):
+        if self.container:
+            self.container.remove(self)
         self.deleteLater()
 
     @property
@@ -81,8 +87,7 @@ class Bonuses(QWidget):
         self.setLayout(self.layout)
 
     def add(self):
-        bonus_widget = SingleBonusWidget()
-        self.bonus_widgets.append(bonus_widget)
+        bonus_widget = SingleBonusWidget(container=self.bonus_widgets)
         self.layout.addWidget(bonus_widget)
         return bonus_widget
 
