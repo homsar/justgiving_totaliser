@@ -562,7 +562,8 @@ class JustGivingTotaliser(QMainWindow):
             if new_donors := self.new_donors(donors):
                 self.announcer.announce_donors(new_donors)
             self.donors = donors
-            self.latest_donor.donor = donors[0]
+            if donors:
+                self.latest_donor.donor = donors[0]
             self.donor_list.donors = donors[:]
             self.marquee.donors = donors[:]
 
