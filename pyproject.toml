@@ -2,6 +2,10 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-data]
+justgiving_totaliser.assets = ["*.mp3"]
+justgiving_totaliser.images = ["*.png"]
+
 [project]
 name = "justgiving_totaliser"
 version = "0.0.2"
