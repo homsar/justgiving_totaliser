@@ -11,6 +11,7 @@ from .common import format_donor
 
 class Announcer(QObject):
     def __init__(self, fanfare, stop_action=None):
+        self.pending_announcements = []
         self.tts = QTextToSpeech()
         if self.tts.state() == QTextToSpeech.BackendError:
             logging.warn("Unable to set up TTS.")
@@ -24,6 +25,14 @@ class Announcer(QObject):
 
         if stop_action:
             stop_action.triggered.connect(self.stop_announcement)
+
+    @property
+    def is_announcing(self):
+        if self.fanfare_timer.isActive():
+            return True
+        if self.tts and self.tts.state() == QTextToSpeech.Speaking:
+            return True
+        return False
 
     def speak(self):
         max_wait_time = 10
@@ -49,6 +58,31 @@ class Announcer(QObject):
 
     def announce_donors(self, new_donors):
         self.announce_text(". ".join(format_donor(donor) for donor in new_donors))
+
+    def wait_and_announce_text(self, text, wait_on):
+        logging.debug(f"Enqueueing announcement of {text}")
+
+        if not wait_on.is_announcing:
+            self.announce_text(text)
+            return
+
+        # Using a closure here because we only want the signal to be caught once
+        def announce_after_waiting(state):
+            logging.debug(f"State changed, trying to announce {text}")
+            if state == QTextToSpeech.Ready:
+                self.announce_text(text)
+                wait_on.tts.stateChanged.disconnect(announce_after_waiting)
+                try:
+                    self.pending_announcements.remove(announce_after_waiting)
+                except ValueError:
+                    from PyQt5.QtCore import pyqtRemoveInputHook
+
+                    pyqtRemoveInputHook()
+                    breakpoint()
+                    logging.warning("Couldn't garbage collect current announcement.")
+
+        self.pending_announcements.append(announce_after_waiting)
+        wait_on.tts.stateChanged.connect(announce_after_waiting)
 
     def stop_announcement(self):
         self.fanfare_timer.stop()

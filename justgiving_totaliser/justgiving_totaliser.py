@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 import os
 import sys
@@ -27,6 +27,7 @@ from .settings import DEFAULT_FONT
 from .types import Donor
 
 from .widgets.about import AboutDialog
+from .widgets.bonuses import BonusDialog
 from .widgets.countdown import Countdown
 from .widgets.donorlist import DonorList
 from .widgets.latestdonor import LatestDonor
@@ -67,6 +68,7 @@ class JustGivingTotaliser(QMainWindow):
         self.donor_list = DonorList()
         self.marquee = Marquee()
         self.countdown = Countdown()
+        self.bonuses = []
 
         self.layout = QVBoxLayout()
 
@@ -111,6 +113,11 @@ class JustGivingTotaliser(QMainWindow):
         self.announcer = Announcer(
             f"{self.source_path}/assets/fanfare.mp3", self.stop_announcement_action
         )
+        self.bonus_announcer = Announcer(
+            f"{self.source_path}/assets/fanfare_bonus.mp3",
+            self.stop_announcement_action,
+        )
+
         self.end_announcer = Announcer(
             f"{self.source_path}/assets/fanfare_end.mp3", self.stop_announcement_action
         )
@@ -168,6 +175,9 @@ class JustGivingTotaliser(QMainWindow):
             self.settings.value("donor_list/num_donors", 10)
         )
         self.countdown.load_settings(self.settings)
+
+        self.bonuses = self.settings.value("bonuses", [])
+        self.compute_bonuses()
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -238,6 +248,11 @@ class JustGivingTotaliser(QMainWindow):
     def time_menu(self):
         self.time_menu = self.menu_bar.addMenu("Time")
         self.countdown.set_up_menu(self.time_menu)
+
+        self.bonuses_action = QAction("Set bonuses", self)
+        self.bonuses_action.setStatusTip("Set up bonus time for donation thresholds.")
+        self.bonuses_action.triggered.connect(self.set_bonuses)
+        self.time_menu.addAction(self.bonuses_action)
 
     def init_colours(self):
         self.colour_menu = self.menu_bar.addMenu("Colours")
@@ -391,6 +406,33 @@ class JustGivingTotaliser(QMainWindow):
             self.donor_list.num_donors = num_donors
             self.settings.setValue("donor_list/num_donors", num_donors)
 
+    def set_bonuses(self):
+        current_bonuses = self.settings.value("bonuses", [])
+        bonuses_dialog = BonusDialog()
+        bonuses_dialog.bonuses = current_bonuses
+        if bonuses_dialog.exec_():
+            self.bonuses = bonuses_dialog.bonuses
+            self.settings.setValue("bonuses", self.bonuses)
+            self.compute_bonuses()
+
+    def compute_bonuses(self):
+        achieved_bonuses = []
+        current_total, *_ = self.progress_bar.totals
+        for threshold, bonus in self.bonuses:
+            if current_total > threshold:
+                achieved_bonuses.append(timedelta(hours=bonus))
+
+        self.countdown.bonus_time = achieved_bonuses
+
+        remaining_thresholds = [
+            threshold for threshold, _ in self.bonuses if threshold > current_total
+        ]
+        if remaining_thresholds:
+            next_threshold = min(remaining_thresholds)
+            # set this into progressbar
+        else:
+            pass  # reset next threshold
+
     def new_donors(self, donors):
         if not self.donors:
             return None
@@ -431,8 +473,36 @@ class JustGivingTotaliser(QMainWindow):
 
         self.settings.setValue("hide_title_bars", hide)
 
+    def format_bonus(self, bonus):
+        if bonus == 1:
+            return "one hour"
+        elif bonus.is_integer():
+            return f"{int(bonus)} hours"
+        else:
+            return f"{bonus} hours"
+
+    def check_threshold_crossings(self, old_total, new_total, target, currency):
+        new_bonuses = [
+            bonus for bonus in self.bonuses if old_total < bonus.threshold <= new_total
+        ]
+
+        message = ""
+        if len(new_bonuses) == 1:
+            bonus = new_bonuses[0].bonus
+            message += f"And that takes us over the next bonus threshold, adding an extra {self.format_bonus(bonus)}! Woo! "
+        elif len(new_bonuses) > 1:
+            total_bonus = sum(bonus.bonus for bonus in new_bonuses)
+            message += f"And that takes us over the next {len(new_bonuses)} thresholds, adding an extra {self.format_bonus(total_bonus)} in all! Woo! "
+
+        if old_total < target <= new_total:
+            message += f"And that {'also ' if message else ''} takes us past our {currency}{target} target! Well done everyone!"
+
+        if message:
+            self.bonus_announcer.wait_and_announce_text(message, self.announcer)
+
     def update_data(self, reraise=False):
         if self.url:
+            old_total, *_ = self.progress_bar.totals or (0, None)
             try:
                 self.progress_bar.totals, donors = get_data(
                     self.url, len(self.donor_list.donor_widgets)
@@ -443,6 +513,9 @@ class JustGivingTotaliser(QMainWindow):
                     raise
                 return
 
+            new_total, target, currency = self.progress_bar.totals or (0, 0, "£")
+            self.check_threshold_crossings(old_total, new_total, target, currency)
+            self.compute_bonuses()
             if new_donors := self.new_donors(donors):
                 self.announcer.announce_donors(new_donors)
             self.donors = donors
