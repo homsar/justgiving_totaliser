@@ -123,3 +123,9 @@ def get_data(url, num_donors=5):
             print(f"Couldn't get graphql: {ex}")
 
     return totals, donors
+
+
+def fake_get_data(url, num_donors=5):
+    """Return an implausible JustGiving response."""
+
+    return Total(Decimal(2000), Decimal(1000), "£"), []

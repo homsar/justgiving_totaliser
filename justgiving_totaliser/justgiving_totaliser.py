@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
 from requests.exceptions import RequestException
 
 from .announcer import Announcer
-from .scrape import get_data
+from .scrape import get_data, fake_get_data
 from .settings import DEFAULT_FONT
 from .types import Donor
 
@@ -355,8 +355,20 @@ class JustGivingTotaliser(QMainWindow):
             )
         )
 
+        self.fake_justgiving_action = QAction("Fake JustGiving", self)
+        self.fake_justgiving_action.setStatusTip(
+            "Pretend we have made £2000, but with no donors"
+        )
+
+        def patch_get_data():
+            global get_data
+            get_data = fake_get_data
+
+        self.fake_justgiving_action.triggered.connect(patch_get_data)
+
         self.debug_menu.addAction(self.test_audio_queue_action)
         self.debug_menu.addAction(self.add_500_donation_action)
+        self.debug_menu.addAction(self.fake_justgiving_action)
 
     def set_background_colours(self, colour=None):
         if not colour:
