@@ -292,7 +292,7 @@ class JustGivingTotaliser(QMainWindow):
         test_donations = [
             Donor("Test donor", "Testing, one two, three.", "NOTHING!"),
             Donor(
-                "Another test onor",
+                "Another test donor",
                 "This is a test of the Emergency Broadcast System. "
                 "This is only a test.",
                 "NOTHING!",
