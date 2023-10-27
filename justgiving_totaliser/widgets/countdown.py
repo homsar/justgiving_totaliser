@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer
@@ -118,7 +118,13 @@ class Countdown(
 
     def load_settings(self, settings):
         self.settings = settings
-        self._start_time = settings.value("countdown/start_time", None)
+
+        start_time = settings.value("countdown/start_time", None)
+        if start_time and not start_time.tzinfo:
+            logging.warning("Provided start_time was not time-zone aware.")
+            start_time = start_time.astimezone()
+        self._start_time = start_time
+
         self._target_length = settings.value("countdown/target_length", None)
         self._extra_time = settings.value("countdown/extra_time", [])
         self.consider_starting()
@@ -134,7 +140,7 @@ class Countdown(
             + sum(self.bonus_time, timedelta())
             + sum(self.extra_time, timedelta())
         )
-        time_left = (end_time - datetime.now()).total_seconds()
+        time_left = (end_time - datetime.now(timezone.utc)).total_seconds()
         if time_left < 0:
             if self.label.text() != "FINISHED!":
                 self.label.setText("FINISHED!")
@@ -150,6 +156,9 @@ class Countdown(
 
     @start_time.setter
     def start_time(self, start_time):
+        if not start_time.tzinfo:
+            logging.warning("Provided start_time was not time-zone aware.")
+            start_time = start_time.astimezone()
         self._start_time = start_time
         if self.settings:
             self.settings.setValue("countdown/start_time", start_time)
@@ -191,7 +200,9 @@ class Countdown(
 
         dialog = DateTimeDialog(default_datetime=self.start_time, parent=self)
         if dialog.exec_():
-            self.start_time = dialog.datetimepicker.dateTime().toPyDateTime()
+            self.start_time = (
+                dialog.datetimepicker.dateTime().toPyDateTime().astimezone()
+            )
 
     def prompt_add_extra_time(self):
         extra_time, accept = QInputDialog.getDouble(
@@ -237,7 +248,7 @@ class Countdown(
             if doublecheck != QMessageBox.Ok:
                 return
 
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
 
     def reset(self):
         doublecheck = QMessageBox.question(
