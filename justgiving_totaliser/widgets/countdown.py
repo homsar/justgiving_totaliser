@@ -60,6 +60,8 @@ class Countdown(
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
+        self.setWindowTitle("JustGiving Countdown")
+
         self.settings = None
         self._start_time = None
         self._target_length = None
