@@ -32,6 +32,9 @@ dependencies = [
     "requests",
 ]
 
+[project.scripts]
+justgiving-totaliser = "justgiving_totaliser.__main__:main"
+
 [project.urls]
 "Homepage" = "https://github.com/homsar/justgiving_totaliser"
 "Bug Tracker" = "https://github.com/homsar/justgiving_totaliser/issues"
