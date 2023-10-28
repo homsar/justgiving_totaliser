@@ -329,8 +329,22 @@ class JustGivingTotaliser(QMainWindow):
         self.play_last_action.setShortcut("CTRL+L")
         self.play_last_action.triggered.connect(lambda: self.play_last())
 
+        self.force_extra_hour_action = QAction("Force extra hour announcement", self)
+        self.force_extra_hour_action.setStatusTip(
+            "Play a fanfare for an extra hour even if you don't deserve one."
+        )
+        self.force_extra_hour_action.triggered.connect(
+            lambda: self.announcer.announce(
+                Announcement(
+                    "And that takes us over the next bonus threshold, adding an extra hour! Woo! ",
+                    "bonus",
+                )
+            )
+        )
+
         self.audio_menu.addAction(self.test_audio_action)
         self.audio_menu.addAction(self.play_last_action)
+        self.audio_menu.addAction(self.force_extra_hour_action)
 
     def play_last(self):
         num_announcements, accept = QInputDialog.getInt(
