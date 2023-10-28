@@ -1,4 +1,7 @@
+from datetime import datetime, timezone
 import logging
+import os
+import pathlib
 from time import sleep
 
 from PyQt5.QtCore import QObject, QTimer, QUrl
@@ -9,78 +12,111 @@ from PyQt5.QtWidgets import QAction
 from .common import format_donor
 
 
+_fanfares = {
+    "donation": "fanfare.mp3",
+    "bonus": "fanfare_bonus.mp3",
+    "end": "fanfare_end.mp3",
+}
+
+
+class Announcement:
+    announced = None
+
+    def __init__(self, message="", fanfare=None):
+        logging.debug(f"Creating announcement, {message=}, {fanfare=}")
+        fanfare_path = pathlib.Path(__file__).parent / "assets"
+        if fanfare:
+            self.fanfare = str(fanfare_path / _fanfares[fanfare])
+        else:
+            self.fanfare = None
+
+        self.message = message
+        self.created = datetime.now(timezone.utc)
+
+    @classmethod
+    def from_donations(cls, donations):
+        return cls(
+            message=". ".join(
+                format_donor(donation, quotes="straight") for donation in donations
+            ),
+            fanfare="donation",
+        )
+
+
 class Announcer(QObject):
-    def __init__(self, fanfare):
+    def __init__(self):
+        self.previous_announcements = []
         self.pending_announcements = []
         self.tts = QTextToSpeech()
         if self.tts.state() == QTextToSpeech.BackendError:
             logging.warn("Unable to set up TTS.")
             self.tts = None
+            self.fanfare.stateChanged.connect(
+                lambda state: self.announce_next(state=state)
+            )
+        else:
+            self.tts.stateChanged.connect(lambda state: self.announce_next(state=state))
 
         self.fanfare = QMediaPlayer()
-        self.fanfare.setMedia(QMediaContent(QUrl.fromLocalFile(fanfare)))
         self.fanfare.setVolume(100)
-        self.fanfare_timer = QTimer()
-        self.fanfare_timer.timeout.connect(lambda: self.speak())
 
     @property
     def is_announcing(self):
-        if self.fanfare_timer.isActive():
+        if self.fanfare.state() == QMediaPlayer.PlayingState:
             return True
         if self.tts and self.tts.state() == QTextToSpeech.Speaking:
             return True
         return False
 
-    def speak(self):
-        max_wait_time = 10
-        logging.debug(f"Speaking - wait time {self.fanfare_wait_time}")
-        if (
-            self.fanfare.state() == QMediaPlayer.StoppedState
-            or self.fanfare_wait_time >= max_wait_time
+    def announce_next(self, state=None):
+        if not (
+            self.is_announcing
+            or (self.tts and state == QTextToSpeech.Speaking)
+            or ((not self.tts) and state == QMediaPlayer.PlayingState)
         ):
-            self.fanfare_timer.stop()
-            self.tts.say(self.tts_to_say)
+            if self.pending_announcements:
+                announcement = self.pending_announcements.pop(0)
+                if not announcement.announced:
+                    announcement.announced = datetime.now(timezone.utc)
+                self.previous_announcements.append(announcement)
+                self._announce(announcement)
+
+    def _announce(self, announcement):
+        if announcement.fanfare:
+            self.fanfare.setMedia(
+                QMediaContent(QUrl.fromLocalFile(announcement.fanfare))
+            )
+            if self.tts:
+                self.fanfare.stateChanged.connect(
+                    lambda state: self.speak(announcement, state)
+                )
+            self.fanfare.play()
+        elif tts:
+            self.speak(announcement)
         else:
-            self.fanfare_wait_time += 1
+            self.announce_next()
 
-    def announce_text(self, text):
-        logging.debug(f"Announcing text {text}")
-        self.stop_announcement()
-        self.fanfare.play()
-        if self.tts:
-            logging.debug("TTS present")
-            self.fanfare_wait_time = 0
-            self.tts_to_say = text
-            self.fanfare_timer.start(500)
+    def speak(self, announcement, state=None):
+        if state == QMediaPlayer.StoppedState or state is None:
+            self.fanfare.stateChanged.disconnect()
+            self.tts.say(announcement.message)
 
-    def announce_donors(self, new_donors):
-        self.announce_text(
-            ". ".join(format_donor(donor, quotes="straight") for donor in new_donors)
-        )
-
-    def wait_and_announce_text(self, text, wait_on):
-        logging.debug(f"Enqueueing announcement of {text}")
-
-        if not wait_on.is_announcing:
-            self.announce_text(text)
-            return
-
-        # Using a closure here because we only want the signal to be caught once
-        def announce_after_waiting(state):
-            logging.debug(f"State changed, trying to announce {text}")
-            if state == QTextToSpeech.Ready:
-                self.announce_text(text)
-                wait_on.tts.stateChanged.disconnect(announce_after_waiting)
-                try:
-                    self.pending_announcements.remove(announce_after_waiting)
-                except ValueError:
-                    logging.warning("Couldn't garbage collect current announcement.")
-
-        self.pending_announcements.append(announce_after_waiting)
-        wait_on.tts.stateChanged.connect(announce_after_waiting)
-
-    def stop_announcement(self):
-        self.fanfare_timer.stop()
+    def stop(self):
         self.fanfare.stop()
         if self.tts and self.tts.state() == QTextToSpeech.Speaking:
             self.tts.stop()
+
+        self.previous_announcements.extend(self.pending_announcements)
+        self.pending_announcements = []
+
+    def announce(self, announcement):
+        from PyQt5.QtCore import pyqtRemoveInputHook
+
+        pyqtRemoveInputHook()
+        # breakpoint()
+        self.pending_announcements.append(announcement)
+        self.announce_next()
+
+    def play_last(self, count):
+        self.pending_announcements.extend(self.previous_announcements[-count:])
+        self.announce_next()

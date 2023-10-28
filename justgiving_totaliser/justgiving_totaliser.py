@@ -1,7 +1,6 @@
 from datetime import timedelta
 from functools import partial
 import logging
-import os
 import sys
 
 import pkg_resources
@@ -20,7 +19,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from .announcer import Announcer
+from .announcer import Announcement, Announcer
 from .scrape import DataGetter, fake_get_data, get_data
 from .settings import DEFAULT_FONT
 from .types import Donor
@@ -50,8 +49,6 @@ class JustGivingTotaliser(QMainWindow):
     def __init__(self, debug=False, parent=None):
         """Initialize the components of the main window."""
         super(JustGivingTotaliser, self).__init__(parent)
-
-        self.source_path = os.path.dirname(os.path.realpath(__file__))
 
         self.setWindowTitle("JustGiving Main Menu")
         window_icon = pkg_resources.resource_filename(
@@ -92,7 +89,7 @@ class JustGivingTotaliser(QMainWindow):
 
         self.file_menu()
         self.time_menu()
-        self.test_menu()
+        self.audio_menu()
         self.help_menu()
         if debug:
             logging.debug("Enabling debug menu")
@@ -113,12 +110,13 @@ class JustGivingTotaliser(QMainWindow):
         self.stop_announcement_action.triggered.connect(self.stop_all_announcements)
         self.file_sub_menu.addAction(self.stop_announcement_action)
 
-        self.announcer = Announcer(f"{self.source_path}/assets/fanfare.mp3")
-        self.bonus_announcer = Announcer(f"{self.source_path}/assets/fanfare_bonus.mp3")
-        self.end_announcer = Announcer(f"{self.source_path}/assets/fanfare_end.mp3")
+        self.announcer = Announcer()
         self.countdown.event_finish.connect(
-            lambda: self.end_announcer.announce_text(
-                "Congratulations! You did it! Now go to bed!"
+            lambda: self.announcer.announce(
+                Announcement(
+                    fanfare="end",
+                    message="Congratulations! You did it! Now go to bed!",
+                )
             )
         )
 
@@ -300,7 +298,7 @@ class JustGivingTotaliser(QMainWindow):
         self.colour_menu.addAction(background_colour_action)
         self.colour_menu_items.append(background_colour_action)
 
-    def test_menu(self):
+    def audio_menu(self):
         test_donations = [
             Donor("Test donor", "Testing, one two, three.", "NOTHING!"),
             Donor(
@@ -311,7 +309,7 @@ class JustGivingTotaliser(QMainWindow):
             ),
         ]
 
-        self.test_menu = self.menu_bar.addMenu("Test")
+        self.audio_menu = self.menu_bar.addMenu("Audio")
 
         self.test_audio_action = QAction("Test audio", self)
         self.test_audio_action.setStatusTip(
@@ -319,14 +317,33 @@ class JustGivingTotaliser(QMainWindow):
         )
         self.test_audio_action.setShortcut("CTRL+T")
         self.test_audio_action.triggered.connect(
-            lambda: self.announcer.announce_donors(test_donations)
+            lambda: self.announcer.announce(
+                Announcement.from_donations(donations=test_donations)
+            )
         )
 
-        self.test_menu.addAction(self.test_audio_action)
+        self.play_last_action = QAction("Play previous announcements", self)
+        self.play_last_action.setStatusTip(
+            "Replay some number of preivous announcements."
+        )
+        self.play_last_action.setShortcut("CTRL+L")
+        self.play_last_action.triggered.connect(lambda: self.play_last())
+
+        self.audio_menu.addAction(self.test_audio_action)
+        self.audio_menu.addAction(self.play_last_action)
+
+    def play_last(self):
+        num_announcements, accept = QInputDialog.getInt(
+            self,
+            "Enter number of announcements",
+            "Enter the number of announcements to replay",
+            1,
+        )
+        if accept:
+            self.announcer.play_last(num_announcements)
 
     def stop_all_announcements(self):
-        for announcer in self.announcer, self.bonus_announcer, self.end_announcer:
-            announcer.stop_announcement()
+        self.announcer.stop()
 
     def debug_menu(self):
         self.debug_menu = self.menu_bar.addMenu("Debug")
@@ -334,8 +351,11 @@ class JustGivingTotaliser(QMainWindow):
         self.test_audio_queue_action = QAction("Test queued audio", self)
         self.test_audio_queue_action.setStatusTip("Play a test bonus announcement.")
         self.test_audio_queue_action.triggered.connect(
-            lambda: self.bonus_announcer.wait_and_announce_text(
-                "This is a bonus announcement.", self.announcer
+            lambda: self.announcer.announce(
+                Announcement(
+                    message="This is a bonus announcement.",
+                    fanfare="bonus",
+                )
             )
         )
 
@@ -544,7 +564,7 @@ class JustGivingTotaliser(QMainWindow):
             message += f"And that {'also ' if message else ''} takes us past our {currency}{target} target! Well done everyone!"
 
         if message:
-            self.bonus_announcer.wait_and_announce_text(message, self.announcer)
+            self.announcer.announce(Announcement(message=message, fanfare="bonus"))
 
     def start_update_data(self, synchronous=False, reraise=False):
         if synchronous:
@@ -581,7 +601,7 @@ class JustGivingTotaliser(QMainWindow):
             self.check_threshold_crossings(old_total, new_total, target, currency)
             self.compute_bonuses()
             if new_donors := self.new_donors(donors):
-                self.announcer.announce_donors(new_donors)
+                self.announcer.announce(Announcement.from_donations(new_donors))
             self.donors = donors
             if donors:
                 self.latest_donor.donor = donors[0]
