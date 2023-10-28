@@ -157,3 +157,5 @@ class ProgressBarWindow(
             self.next_threshold_label.setText(
                 f"{currency}{left_to_next_threshold} left to next bonus"
             )
+        else:
+            self.next_threshold_label.setText("")
