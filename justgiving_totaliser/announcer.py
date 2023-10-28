@@ -74,10 +74,6 @@ class Announcer(QObject):
                 try:
                     self.pending_announcements.remove(announce_after_waiting)
                 except ValueError:
-                    from PyQt5.QtCore import pyqtRemoveInputHook
-
-                    pyqtRemoveInputHook()
-                    breakpoint()
                     logging.warning("Couldn't garbage collect current announcement.")
 
         self.pending_announcements.append(announce_after_waiting)
