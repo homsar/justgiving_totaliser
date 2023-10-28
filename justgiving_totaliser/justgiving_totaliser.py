@@ -6,7 +6,7 @@ import sys
 
 import pkg_resources
 
-from PyQt5.QtCore import Qt, QEvent, QSettings, QTimer
+from PyQt5.QtCore import Qt, QEvent, QSettings, QThreadPool, QTimer
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QAction,
@@ -20,10 +20,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from requests.exceptions import RequestException
-
 from .announcer import Announcer
-from .scrape import get_data, fake_get_data
+from .scrape import DataGetter, fake_get_data, get_data
 from .settings import DEFAULT_FONT
 from .types import Donor
 
@@ -125,8 +123,10 @@ class JustGivingTotaliser(QMainWindow):
         )
 
     def init_timers(self):
+        self.thread_pool = QThreadPool()
+
         self.timer = StatusDisplayingTimer(self.timer_status_display)
-        self.timer.timeout.connect(self.update_data)
+        self.timer.timeout.connect(self.start_update_data)
 
         self.repaint_timer = QTimer()
         self.repaint_timer.timeout.connect(self.repaint_all)
@@ -140,7 +140,7 @@ class JustGivingTotaliser(QMainWindow):
         )
         if self.url:
             try:
-                self.update_data()
+                self.start_update_data(synchronous=True)
             except Exception as ex:
                 print("Swallowing exception:", ex)
             else:
@@ -358,8 +358,8 @@ class JustGivingTotaliser(QMainWindow):
         )
 
         def patch_get_data():
-            global get_data
-            get_data = fake_get_data
+            for datagetter in self.data_getters.values():
+                datagetter.local_get_data = staticmethod(fake_get_data)
 
         self.fake_justgiving_action.triggered.connect(patch_get_data)
 
@@ -405,7 +405,7 @@ class JustGivingTotaliser(QMainWindow):
             self.timer.status_display.last_check = "Waiting to connect..."
             self.settings.setValue("url", url)
             self.pause(force_resume=True)
-            self.update_data()
+            self.start_update_data(synchronous=True)
 
     def set_refresh_time(self):
         refresh_time, accept = QInputDialog.getDouble(
@@ -457,12 +457,16 @@ class JustGivingTotaliser(QMainWindow):
 
     def compute_bonuses(self):
         achieved_bonuses = []
-        current_total, *_ = self.progress_bar.totals
-        for threshold, bonus in self.bonuses:
-            if current_total > threshold:
-                achieved_bonuses.append(timedelta(hours=bonus))
+        if self.progress_bar.totals:
+            current_total, *_ = self.progress_bar.totals
+            for threshold, bonus in self.bonuses:
+                if current_total > threshold:
+                    achieved_bonuses.append(timedelta(hours=bonus))
 
-        self.countdown.bonus_time = achieved_bonuses
+            self.countdown.bonus_time = achieved_bonuses
+        else:
+            current_total = 0
+            self.countdown.bonus_time = []
 
         remaining_thresholds = [
             threshold for threshold, _ in self.bonuses if threshold > current_total
@@ -522,6 +526,9 @@ class JustGivingTotaliser(QMainWindow):
             return f"{bonus} hours"
 
     def check_threshold_crossings(self, old_total, new_total, target, currency):
+        if old_total is None:
+            return
+
         new_bonuses = [
             bonus for bonus in self.bonuses if old_total < bonus.threshold <= new_total
         ]
@@ -540,20 +547,38 @@ class JustGivingTotaliser(QMainWindow):
         if message:
             self.bonus_announcer.wait_and_announce_text(message, self.announcer)
 
-    def update_data(self, reraise=False):
-        if self.url:
-            old_total, *_ = self.progress_bar.totals or (0, None)
-            try:
-                self.progress_bar.totals, donors = get_data(
-                    self.url, len(self.donor_list.donor_widgets)
-                )
-            except (RequestException, RuntimeError):
+    def start_update_data(self, synchronous=False, reraise=False):
+        if synchronous:
+            return self.complete_update_data(
+                reraise=reraise,
+                new_data=get_data(self.url, len(self.donor_list.donor_widgets)),
+            )
+        if not self.url:
+            return
+
+        data_getter = DataGetter(self.url, len(self.donor_list.donor_widgets))
+        data_getter.signals.finished.connect(
+            lambda new_data: self.complete_update_data(reraise, new_data)
+        )
+        self.thread_pool.start(data_getter)
+
+    def complete_update_data(self, reraise=False, new_data=None):
+        logging.debug("Entered complete_update_data")
+
+        if self.url and new_data is not None:
+            new_totals, donors = new_data
+            if isinstance(new_totals, Exception):
+                logging.debug("Hit an error: new_totals.")
                 self.timer.update_failedcheck(verb="checked")
                 if reraise:
-                    raise
+                    logging.debug("Raising this")
+                    raise new_totals
                 return
 
-            new_total, target, currency = self.progress_bar.totals or (0, 0, "£")
+            old_total, *_ = self.progress_bar.totals or (None, None)
+            new_total, target, currency = new_totals or (0, 0, "£")
+            self.progress_bar.totals = new_totals
+
             self.check_threshold_crossings(old_total, new_total, target, currency)
             self.compute_bonuses()
             if new_donors := self.new_donors(donors):
@@ -581,7 +606,7 @@ class JustGivingTotaliser(QMainWindow):
             self.pause_action.setText("Pause")
 
             # Don't want to wait for timer to time out after resuming
-            self.update_data()
+            self.start_update_data()
         else:
             self.timer.stop()
             self.pause_action.setText("Resume")

@@ -1,7 +1,10 @@
 from decimal import Decimal
+import logging
 
 import requests
 from bs4 import BeautifulSoup
+
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 
 from .types import Donor, Total, NULL_DONOR
 
@@ -105,6 +108,7 @@ def get_slug(url):
 def get_data(url, num_donors=5):
     """Given a JustGiving `url`, return the current total and target amounts, and the currency symbol."""
 
+    logging.debug("get_data entered")
     response = requests.get(url)
     if not 200 <= response.status_code < 300:
         raise RuntimeError(
@@ -119,7 +123,7 @@ def get_data(url, num_donors=5):
         try:
             slug = get_slug(url)
             donors = get_donors_graphql(soup, slug, num_donors)
-        except Exception as ex:
+        except (requests.exceptions.RequestException, RuntimeError) as ex:
             print(f"Couldn't get graphql: {ex}")
 
     return totals, donors
@@ -129,3 +133,30 @@ def fake_get_data(url, num_donors=5):
     """Return an implausible JustGiving response."""
 
     return Total(Decimal(2000), Decimal(1000), "£"), []
+
+
+class DataSignals(QObject):
+    finished = pyqtSignal(tuple)
+
+
+class DataGetter(QRunnable):
+    local_get_data = staticmethod(get_data)
+
+    def __init__(self, url, num_donors=5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        logging.debug("DataGetter created.")
+
+        self.url = url
+        self.num_donors = num_donors
+        self.signals = DataSignals()
+
+    @pyqtSlot()
+    def run(self):
+        logging.debug("Trying to call get_data.")
+        if not self.url:
+            self.signals.finished.emit((None, None))
+        try:
+            self.signals.finished.emit(self.local_get_data(self.url, self.num_donors))
+        except Exception as ex:
+            logging.debug(f"Couldn't get_data due to {ex}")
+            self.signals.finished.emit((ex, None))
