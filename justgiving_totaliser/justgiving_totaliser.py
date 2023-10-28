@@ -30,7 +30,7 @@ from .widgets.countdown import Countdown
 from .widgets.donorlist import DonorList
 from .widgets.latestdonor import LatestDonor
 from .widgets.marquee import Marquee
-from .widgets.progressbar import ProgressBar
+from .widgets.progressbar import ProgressBarWindow
 from .widgets.timer import StatusDisplayingTimer, TimerStatusDisplay
 
 
@@ -59,7 +59,7 @@ class JustGivingTotaliser(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
-        self.progress_bar = ProgressBar()
+        self.progress_bar = ProgressBarWindow()
         self.latest_donor = LatestDonor()
         self.donor_list = DonorList()
         self.marquee = Marquee()
@@ -250,6 +250,7 @@ class JustGivingTotaliser(QMainWindow):
         self.time_menu.addAction(self.bonuses_action)
 
     def init_colours(self):
+        self.migrate_text_colour_settings()
         self.colour_menu = self.menu_bar.addMenu("Colours")
         self.colour_menu_items = []
 
@@ -257,14 +258,20 @@ class JustGivingTotaliser(QMainWindow):
             (self.progress_bar, "bar_colour", "progress bar", QColor(Qt.green)),
             (
                 self.progress_bar,
-                "text_colour",
+                "bar_text_colour",
                 "progress bar text",
                 QColor(Qt.darkGreen),
+            ),
+            (
+                self.progress_bar,
+                "text_colour",
+                "progress bar lower text",
+                QColor(Qt.white),
             ),
             (self.latest_donor, "text_colour", "latest donor text", QColor(Qt.white)),
             (self.donor_list, "text_colour", "donor list text", QColor(Qt.white)),
             (self.marquee, "text_colour", "marquee text", QColor(Qt.white)),
-            (self.countdown, "text_colour", "countdown text colour", QColor(Qt.white)),
+            (self.countdown, "text_colour", "countdown text", QColor(Qt.white)),
         ]:
 
             def set_colour(colour, widget, attrname, text):
@@ -297,6 +304,13 @@ class JustGivingTotaliser(QMainWindow):
         )
         self.colour_menu.addAction(background_colour_action)
         self.colour_menu_items.append(background_colour_action)
+
+    def migrate_text_colour_settings(self):
+        if (
+            text_colour := self.settings.value("bar/text_colour", None)
+        ) and not self.settings.value("bar/bar_text_colour", None):
+            self.settings.setValue("bar/bar_text_colour", text_colour)
+            self.settings.setValue("bar/text_colour", QColor(Qt.white))
 
     def audio_menu(self):
         test_donations = [
@@ -410,10 +424,16 @@ class JustGivingTotaliser(QMainWindow):
         if colour.isValid():
             self.settings.setValue(f"background_colour", colour)
 
-            for window in self, self.progress_bar, self.marquee:
+            for window in self, self.marquee:
                 window.setStyleSheet(f"background-color: {colour.name()}")
 
-            for window in self, self.latest_donor, self.donor_list, self.countdown:
+            for window in (
+                self,
+                self.progress_bar,
+                self.latest_donor,
+                self.donor_list,
+                self.countdown,
+            ):
                 window.background_colour = colour
 
     def help_menu(self):
@@ -505,10 +525,11 @@ class JustGivingTotaliser(QMainWindow):
             threshold for threshold, _ in self.bonuses if threshold > current_total
         ]
         if remaining_thresholds:
-            next_threshold = min(remaining_thresholds)
-            # set this into progressbar
+            logging.debug(f"Setting threshold to {min(remaining_thresholds)}")
+            self.progress_bar.next_threshold = min(remaining_thresholds)
         else:
-            pass  # reset next threshold
+            logging.debug("No thresholds available...")
+            self.progress_bar.next_threshold = None
 
     def new_donors(self, donors):
         if not self.donors:
