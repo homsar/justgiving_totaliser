@@ -110,10 +110,6 @@ class Announcer(QObject):
         self.pending_announcements = []
 
     def announce(self, announcement):
-        from PyQt5.QtCore import pyqtRemoveInputHook
-
-        pyqtRemoveInputHook()
-        # breakpoint()
         self.pending_announcements.append(announcement)
         self.announce_next()
 
