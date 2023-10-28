@@ -324,7 +324,7 @@ class JustGivingTotaliser(QMainWindow):
 
         self.play_last_action = QAction("Play previous announcements", self)
         self.play_last_action.setStatusTip(
-            "Replay some number of preivous announcements."
+            "Replay some number of previous announcements."
         )
         self.play_last_action.setShortcut("CTRL+L")
         self.play_last_action.triggered.connect(lambda: self.play_last())
