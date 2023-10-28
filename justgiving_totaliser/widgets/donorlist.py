@@ -48,7 +48,9 @@ class SingleDonor(QWidget):
     def donor(self, donor):
         self._donor = donor
         self.name.setText(donor.name)
-        if donor.amount.split():
+        if donor.amount is None:
+            self.amount.setText("???")
+        elif donor.amount.split():
             amount = []
             for element in donor.amount.split():
                 if element == "+":

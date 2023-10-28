@@ -305,7 +305,7 @@ class JustGivingTotaliser(QMainWindow):
                 "Another test donor",
                 "This is a test of the Emergency Broadcast System. "
                 "This is only a test.",
-                "NOTHING!",
+                None,
             ),
         ]
 

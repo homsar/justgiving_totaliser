@@ -32,9 +32,14 @@ def get_donors(soup):
     for relevant_block in soup.findAll(
         "div", {"class": lambda L: L and L.startswith("SupporterDetails_content")}
     ):
-        name = list(list(relevant_block.children)[0].children)[0].text
-        comment = list(relevant_block.children)[1].text
-        amount = list(relevant_block.children)[2].text
+        children = list(relevant_block.children)
+        name = list(children[0].children)[0].text
+        comment = children[1].text
+        if len(children) > 2:
+            amount = children[2].text
+        else:
+            amount = None
+
         donors.append(Donor(name, comment, amount))
 
     return donors
@@ -87,7 +92,9 @@ def get_donors_graphql(soup, slug, num_donors):
             Donor(
                 raw_donation["displayName"],
                 raw_donation["message"],
-                currency_to_string(**raw_donation["amount"]),
+                currency_to_string(**raw_donation["amount"])
+                if raw_donation["amount"]
+                else None,
             )
         )
 
