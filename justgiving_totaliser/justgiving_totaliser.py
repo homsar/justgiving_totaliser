@@ -358,8 +358,7 @@ class JustGivingTotaliser(QMainWindow):
         )
 
         def patch_get_data():
-            for datagetter in self.data_getters.values():
-                datagetter.local_get_data = staticmethod(fake_get_data)
+            DataGetter.local_get_data = staticmethod(fake_get_data)
 
         self.fake_justgiving_action.triggered.connect(patch_get_data)
 
