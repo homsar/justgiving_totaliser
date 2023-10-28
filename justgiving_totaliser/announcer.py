@@ -10,7 +10,7 @@ from .common import format_donor
 
 
 class Announcer(QObject):
-    def __init__(self, fanfare, stop_action=None):
+    def __init__(self, fanfare):
         self.pending_announcements = []
         self.tts = QTextToSpeech()
         if self.tts.state() == QTextToSpeech.BackendError:
@@ -22,9 +22,6 @@ class Announcer(QObject):
         self.fanfare.setVolume(100)
         self.fanfare_timer = QTimer()
         self.fanfare_timer.timeout.connect(lambda: self.speak())
-
-        if stop_action:
-            stop_action.triggered.connect(self.stop_announcement)
 
     @property
     def is_announcing(self):

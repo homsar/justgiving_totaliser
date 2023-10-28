@@ -112,19 +112,12 @@ class JustGivingTotaliser(QMainWindow):
             "Stop any current announcements from playing"
         )
         self.stop_announcement_action.setShortcut("CTRL+K")
+        self.stop_announcement_action.triggered.connect(self.stop_all_announcements)
         self.file_sub_menu.addAction(self.stop_announcement_action)
 
-        self.announcer = Announcer(
-            f"{self.source_path}/assets/fanfare.mp3", self.stop_announcement_action
-        )
-        self.bonus_announcer = Announcer(
-            f"{self.source_path}/assets/fanfare_bonus.mp3",
-            self.stop_announcement_action,
-        )
-
-        self.end_announcer = Announcer(
-            f"{self.source_path}/assets/fanfare_end.mp3", self.stop_announcement_action
-        )
+        self.announcer = Announcer(f"{self.source_path}/assets/fanfare.mp3")
+        self.bonus_announcer = Announcer(f"{self.source_path}/assets/fanfare_bonus.mp3")
+        self.end_announcer = Announcer(f"{self.source_path}/assets/fanfare_end.mp3")
         self.countdown.event_finish.connect(
             lambda: self.end_announcer.announce_text(
                 "Congratulations! You did it! Now go to bed!"
@@ -330,6 +323,10 @@ class JustGivingTotaliser(QMainWindow):
         )
 
         self.test_menu.addAction(self.test_audio_action)
+
+    def stop_all_announcements(self):
+        for announcer in self.announcer, self.bonus_announcer, self.end_announcer:
+            announcer.stop_announcement()
 
     def debug_menu(self):
         self.debug_menu = self.menu_bar.addMenu("Debug")
