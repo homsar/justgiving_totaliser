@@ -75,6 +75,7 @@ class StatusDisplayingTimer(QTimer):
             f"Last {verb if verb else 'called'}: {self.last_check}"
         )
         if success:
+            self.status_display.status = "Running"
             self.last_check = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.status_display.colour = "#00a000"
 
