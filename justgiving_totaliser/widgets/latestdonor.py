@@ -49,5 +49,8 @@ class LatestDonor(
     @donor.setter
     def donor(self, donor):
         self._donor = donor
-        self.name.setText(f"{donor.name}: {donor.amount}")
+        if donor.amount is None:
+            self.name.setText(f"{donor.name}")
+        else:
+            self.name.setText(f"{donor.name}: {donor.amount}")
         self.message.setText(donor.comment)
