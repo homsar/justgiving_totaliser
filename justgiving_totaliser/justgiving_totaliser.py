@@ -530,6 +530,7 @@ class JustGivingTotaliser(QMainWindow):
         else:
             logging.debug("No thresholds available...")
             self.progress_bar.next_threshold = None
+        self.progress_bar.update()
 
     def new_donors(self, donors):
         if not self.donors:
