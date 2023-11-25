@@ -108,9 +108,23 @@ class JustGivingTotaliser(QMainWindow):
         )
         self.stop_announcement_action.setShortcut("CTRL+K")
         self.stop_announcement_action.triggered.connect(self.stop_all_announcements)
-        self.file_sub_menu.addAction(self.stop_announcement_action)
+        self.audio_menu.addAction(self.stop_announcement_action)
 
-        self.announcer = Announcer()
+        tts_enabled = self.settings.value("use_voice", True)
+        self.announcer = Announcer(tts=tts_enabled)
+
+        self.use_voice_action = QAction("Use TTS for announcements", self)
+        self.use_voice_action.setCheckable(True)
+        self.use_voice_action.setStatusTip("Enable reading announcements with TTS")
+        self.use_voice_action.setChecked(tts_enabled)
+        self.use_voice_action.toggled.connect(
+            lambda checked: self.announcer.toggle_voice(checked)
+        )
+        self.use_voice_action.toggled.connect(
+            lambda checked: self.settings.setValue("use_voice", checked)
+        )
+        self.audio_menu.addAction(self.use_voice_action)
+
         self.countdown.event_finish.connect(
             lambda: self.announcer.announce(
                 Announcement(

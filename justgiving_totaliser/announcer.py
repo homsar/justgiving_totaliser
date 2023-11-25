@@ -44,19 +44,10 @@ class Announcement:
 
 
 class Announcer(QObject):
-    def __init__(self):
+    def __init__(self, *, tts=False):
         self.previous_announcements = []
         self.pending_announcements = []
-        self.tts = QTextToSpeech()
-        if self.tts.state() == QTextToSpeech.BackendError:
-            logging.warn("Unable to set up TTS.")
-            self.tts = None
-            self.fanfare.stateChanged.connect(
-                lambda state: self.announce_next(state=state)
-            )
-        else:
-            self.tts.stateChanged.connect(lambda state: self.announce_next(state=state))
-
+        self.toggle_voice(tts)
         self.fanfare = QMediaPlayer()
         self.fanfare.setVolume(100)
 
@@ -116,3 +107,19 @@ class Announcer(QObject):
     def play_last(self, count):
         self.pending_announcements.extend(self.previous_announcements[-count:])
         self.announce_next()
+
+    def toggle_voice(self, use_voice):
+        if use_voice:
+            self.tts = QTextToSpeech()
+            if self.tts.state() == QTextToSpeech.BackendError:
+                logging.warn("Unable to set up TTS.")
+                self.tts = None
+                self.fanfare.stateChanged.connect(
+                    lambda state: self.announce_next(state=state)
+                )
+            else:
+                self.tts.stateChanged.connect(
+                    lambda state: self.announce_next(state=state)
+                )
+        else:
+            self.tts = None
