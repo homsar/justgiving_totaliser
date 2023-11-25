@@ -21,6 +21,43 @@ Limitations
 
 * Only works for JustGiving "pages", not for "campaigns", "crowdfundings", etc.
 
+
+Installation
+------------
+
+::
+
+   pip install git+https://github.com/homsar/justgiving_totaliser.git#egg=usgiving_totaliser
+
+Usage
+-----
+
+To start the app::
+
+  python -m justgiving_totaliser
+
+Setting up:
+
+# Specify your JustGiving page via `Options > Set URL`. Paste in your URL and click OK.
+# Set the base length of your event via `Time > Set target length`
+# Set the event start time:
+
+  * If you are starting the event live, use `Time > Start event NOW!` to start the countdown
+  * Otherwise, set the start time via `Time > Set event start time`
+
+Other things you can do:
+
+* If you need to stop an announcement, hit `Audio > Stop announcement`, or press `Ctrl+K` (`Cmd+K` on Mac)
+* If you are adding bonus time for hitting donation targets, specify these via `Time > Set bonuses`. (These stack, so if you want to add an extra hour at £250 and £500, then set `1` for each of those values, not `2` at `£500`!)
+* If you need to manually add extra time for any reason (other than preset bonuses), this can be done via `Time > Add extra time`. (This can also be negative if you need to subtract time.)
+* You can re-trigger announcements (e.g. if a good one got played while the audio was turned down) via `Audio > Play previous announcements`
+* You can force an extra hour to be announced via `Audio > Force extra hour announcement`
+* You can control the colours of almost everything via the `Colours` menu
+* Depending on your OBS setup, `Options > Hide title bars` might help
+* If you or your audience are impatient or hard of reading, look at `Options > Set marquee speed`
+* If you have a vast amount of or not very much space on your stream layout, use `Options > Set number of donations`
+* If you are impatient, you can use `Options > Set refresh time` to potentially get updates slightly faster
+
 Credits
 ---------
 
