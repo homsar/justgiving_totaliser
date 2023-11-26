@@ -38,12 +38,12 @@ To start the app::
 
 Setting up:
 
-# Specify your JustGiving page via `Options > Set URL`. Paste in your URL and click OK.
-# Set the base length of your event via `Time > Set target length`
-# Set the event start time:
+1. Specify your JustGiving page via `Options > Set URL`. Paste in your URL and click OK.
+2. Set the base length of your event via `Time > Set target length`
+3. Set the event start time:
 
-  * If you are starting the event live, use `Time > Start event NOW!` to start the countdown
-  * Otherwise, set the start time via `Time > Set event start time`
+   * If you are starting the event live, use `Time > Start event NOW!` to start the countdown
+   * Otherwise, set the start time via `Time > Set event start time`
 
 Other things you can do:
 
