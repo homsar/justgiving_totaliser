@@ -10,6 +10,7 @@ Features
 
 * Scrapes a JustGiving page
 * Displays windows showing:
+
   - a simple bar showing the progress towards the total
   - the most recent donor's name, donation amount and comment
   - recent donors' names and donation amounts in a list
