@@ -484,14 +484,15 @@ class JustGivingTotaliser(QMainWindow):
             self.start_update_data(synchronous=True)
 
     def set_default_target(self):
-        target, accept = QInputDialog.getText(
+        target_text, accept = QInputDialog.getText(
             self,
             "Enter default target",
             "Enter the target amount to fall back to if JustGiving doesn't return one:",
         )
 
         if accept:
-            self.default_target = Decimal(target)
+            target = Decimal(target_text)
+            self.default_target = target
             self.settings.setValue("default_target", target)
             self.pause(force_resume=True)
             self.start_update_data(synchronous=True)
