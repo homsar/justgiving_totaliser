@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from functools import partial
 import logging
 import sys
@@ -22,7 +23,7 @@ from PyQt5.QtWidgets import (
 from .announcer import Announcement, Announcer
 from .scrape import DataGetter, fake_get_data, get_data
 from .settings import DEFAULT_FONT
-from .types import Donor
+from .types import Donor, Total
 
 from .widgets.about import AboutDialog
 from .widgets.bonuses import BonusDialog
@@ -147,6 +148,7 @@ class JustGivingTotaliser(QMainWindow):
     def init_settings(self):
         self.settings = QSettings("h0m54r", "justgiving_totaliser")
         self.url = self.settings.value("url", defaultValue=None)
+        self.default_target = self.settings.value("default_target", defaultValue=1000)
         self.timer_interval = int(
             self.settings.value("timer_interval", defaultValue=60_000)
         )
@@ -197,6 +199,12 @@ class JustGivingTotaliser(QMainWindow):
         self.set_url_action.setShortcut("CTRL+U")
         self.set_url_action.triggered.connect(self.set_url)
 
+        self.set_default_target_action = QAction("Set default target", self)
+        self.set_default_target_action.setStatusTip(
+            "Set a default target for if JustGiving won't give us one."
+        )
+        self.set_default_target_action.triggered.connect(self.set_default_target)
+
         self.pause_action = QAction("Pause", self)
         self.pause_action.setStatusTip("Pause/resume scraping")
         self.pause_action.setShortcut("CTRL+P")
@@ -246,6 +254,7 @@ class JustGivingTotaliser(QMainWindow):
         self.exit_action.triggered.connect(lambda: QApplication.quit())
 
         self.file_sub_menu.addAction(self.set_url_action)
+        self.file_sub_menu.addAction(self.set_default_target_action)
         self.file_sub_menu.addAction(self.pause_action)
         self.file_sub_menu.addAction(self.refresh_time_action)
         self.file_sub_menu.addAction(self.marquee_speed_action)
@@ -474,6 +483,19 @@ class JustGivingTotaliser(QMainWindow):
             self.pause(force_resume=True)
             self.start_update_data(synchronous=True)
 
+    def set_default_target(self):
+        target, accept = QInputDialog.getText(
+            self,
+            "Enter default target",
+            "Enter the target amount to fall back to if JustGiving doesn't return one:",
+        )
+
+        if accept:
+            self.default_target = Decimal(target)
+            self.settings.setValue("default_target", target)
+            self.pause(force_resume=True)
+            self.start_update_data(synchronous=True)
+
     def set_refresh_time(self):
         refresh_time, accept = QInputDialog.getDouble(
             self,
@@ -645,7 +667,12 @@ class JustGivingTotaliser(QMainWindow):
                 return
 
             old_total, *_ = self.progress_bar.totals or (None, None)
+
             new_total, target, currency = new_totals or (0, 0, "£")
+            if target is None:
+                target = self.default_target
+                new_totals = Total(new_total, target, currency)
+
             self.progress_bar.totals = new_totals
 
             self.check_threshold_crossings(old_total, new_total, target, currency)

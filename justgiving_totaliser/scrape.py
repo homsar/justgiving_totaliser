@@ -9,8 +9,21 @@ from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 from .types import Donor, Total, NULL_DONOR
 
 
+def get_totals_alternative(soup):
+    raised_block = soup.find_all("dd")[0]
+    amount_block = raised_block.find_all("div")[0]
+    raised_text = amount_block.text
+    currency = raised_text[0]
+    raised = Decimal(raised_text[1:].replace(",", ""))
+    return Total(raised, None, currency)
+
+
 def get_totals(soup):
-    relevant_block = soup.find(string="raised of").find_parents()
+    raised_of_block = soup.find(string="raised of")
+    if not raised_of_block:
+        return get_totals_alternative(soup)
+
+    relevant_block = raised_of_block.find_parents()
 
     raised_text = relevant_block[1].previousSibling.string
     target_text = relevant_block[0].nextSibling.nextSibling.string
