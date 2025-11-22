@@ -9,7 +9,27 @@ from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 from .types import Donor, Total, NULL_DONOR
 
 
-def get_totals_alternative(soup):
+known_currencies = {
+    "GBP": "£",
+    "USD": "$",
+    "EUR": "€",
+    "AUD": "AU$",
+    "NZD": "NZ$",
+    "CAD": "CA$",
+}
+
+
+def query_graphql(query):
+    url = "https://graphql.justgiving.com/"
+    response = requests.post(url, json={"query": query})
+
+    if not 200 <= response.status_code < 300:
+        raise RuntimError(f"{response.status_code} from graphql server")
+
+    return response.json()
+
+
+def get_totals_fallback(soup, _):
     raised_block = soup.find_all("dd")[0]
     amount_block = raised_block.find_all("div")[0]
     raised_text = amount_block.text
@@ -18,11 +38,42 @@ def get_totals_alternative(soup):
     return Total(raised, None, currency)
 
 
-def get_totals(soup):
-    raised_of_block = soup.find(string="raised of")
-    if not raised_of_block:
-        return get_totals_alternative(soup)
+def get_totals_graphql(_, url):
+    slug = get_slug(url)
+    query = f"""
+    {{
+      page(slug: "{slug}", type: ONE_PAGE) {{
+        targetWithCurrency {{
+          value
+          currencyCode
+        }}
+        donationSummary {{
+          totalAmount {{
+            value
+            currencyCode
+          }}
+        }}
+      }}
+    }}"""
 
+    result = query_graphql(query)
+    currency_code = result["data"]["page"]["donationSummary"]["totalAmount"][
+        "currencyCode"
+    ]
+    assert currency_code == result["data"]["page"]["targetWithCurrency"]["currencyCode"]
+
+    target = normalise_currency(
+        currency_code, result["data"]["page"]["targetWithCurrency"]["value"]
+    )
+    raised = normalise_currency(
+        currency_code, result["data"]["page"]["donationSummary"]["totalAmount"]["value"]
+    )
+    currency = known_currencies.get(currency_code, f"{currency_code} ")
+    return Total(raised, target, currency)
+
+
+def get_totals(soup, _):
+    raised_of_block = soup.find(string="raised of")
     relevant_block = raised_of_block.find_parents()
 
     raised_text = relevant_block[1].previousSibling.string
@@ -58,20 +109,16 @@ def get_donors(soup):
     return donors
 
 
-def currency_to_string(currencyCode, value):
-    known_currencies = {
-        "GBP": "£",
-        "USD": "$",
-        "EUR": "€",
-        "AUD": "AU$",
-        "NZD": "NZ$",
-        "CAD": "CA$",
-    }
-
+def normalise_currency(currencyCode, value):
     if currencyCode in known_currencies:
-        return f"{known_currencies[currencyCode]}{value / 100:.02f}"
+        return Decimal(value) / 100
+    return Decimal(value)
 
-    return f"{currencyCode} {value}"
+
+def currency_to_string(currencyCode, value):
+    normalised_value = normalise_currency(currencyCode, value)
+    symbol = known_currencies.get(currencyCode, f"{currencyCode} ")
+    return f"{symbol}{normalised_value}"
 
 
 def get_donors_graphql(soup, slug, num_donors):
@@ -91,13 +138,8 @@ def get_donors_graphql(soup, slug, num_donors):
       }}
     }}"""
 
-    url = "https://graphql.justgiving.com/"
-    response = requests.post(url, json={"query": query})
-
-    if not 200 <= response.status_code < 300:
-        raise RuntimError(f"{response.status_code} from graphql server")
-
-    raw_donations = response.json()["data"]["page"]["donations"]["nodes"]
+    result = query_graphql(query)
+    raw_donations = result["data"]["page"]["donations"]["nodes"]
     donations = []
 
     for raw_donation in raw_donations:
@@ -136,7 +178,16 @@ def get_data(url, num_donors=5):
         )
 
     soup = BeautifulSoup(markup=response.text, features="html.parser")
-    totals = get_totals(soup)
+    for total_getter in [get_totals, get_totals_graphql, get_totals_fallback]:
+        try:
+            totals = total_getter(soup, url)
+        except Exception as ex:
+            continue
+        else:
+            break
+    else:
+        totals = Total(Decimal(0), Decimal(0), "£")
+
     donors = get_donors(soup)
 
     if len(donors) < num_donors:
