@@ -28,7 +28,7 @@ Installation
 
 ::
 
-   pip install git+https://github.com/homsar/justgiving_totaliser.git#egg=usgiving_totaliser
+   pip install git+https://github.com/homsar/justgiving_totaliser.git#egg=justgiving_totaliser
 
 Usage
 -----
