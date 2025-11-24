@@ -98,7 +98,10 @@ def get_donors(soup):
     ):
         children = list(relevant_block.children)
         name = list(children[0].children)[0].text
-        comment = children[1].text
+        if len(children) > 1:
+            comment = children[1].text
+        else:
+            comment = None
         if len(children) > 2:
             amount = children[2].text
         else:
